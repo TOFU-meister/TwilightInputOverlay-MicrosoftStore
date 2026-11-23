@@ -2,7 +2,7 @@
 
 Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグインです。対象は Windows x64、Unity 2019.4.24f1 / IL2CPP、BepInEx 6.0.0-be.793 IL2CPP、.NET 6 です。
 
-現在の開発版は **0.1.1-pre** です。
+今回のテスト版は **0.1.1-pre** です。Raining Keys のテクスチャ管理を修正し、無効なテクスチャの参照による連続例外を防ぎます。角丸の描画に失敗した場合は、矩形のバーに切り替わります。
 
 ## 対応環境
 
@@ -55,21 +55,19 @@ C:\XboxGames\Human Fall Flat\Content\
 
 | プラグイン | ダウンロードする DLL | 置くフォルダー |
 | --- | --- | --- |
-| [HSRTimer Releases](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/releases) | `HSRTimer-v0.1.1-pre.dll` | `BepInEx\plugins\HSRTimer-MicrosoftStore\` |
-| [TwilightInputOverlay Releases](https://github.com/TOFU-meister/TwilightInputOverlay-MicrosoftStore/releases) | `TwilightInputOverlay-v0.1.1-pre.dll` | `BepInEx\plugins\TwilightInputOverlay\` |
+| [HSRTimer Releases](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/releases) | `HSRTimer-v0.1.2-pre.dll` | `BepInEx\plugins\` |
+| [TwilightInputOverlay Releases](https://github.com/TOFU-meister/TwilightInputOverlay-MicrosoftStore/releases) | `TwilightInputOverlay-v0.1.1-pre.dll` | `BepInEx\plugins\` |
 
-必要なフォルダーを作り、DLL をダウンロードした名前のままコピーします。新しい配布形式は **DLL 単体**です。GitHub の **Source code (zip)** はソースコードで、導入には使いません。過去の HSRTimer **`0.1.0-pre`** を使う場合だけ、当時の配布 ZIP を展開して、中の `HSRTimer.dll` を同じ HSRTimer 用フォルダーに入れます。
+`BepInEx` の中に `plugins` がなければ作ります。旧 DLL を取り除き、ダウンロードした DLL を名前そのままで `plugins` の直下にコピーします。プラグインごとのサブフォルダーは不要です。新しい配布形式は **DLL 単体**です。GitHub の **Source code (zip)** はソースコードで、導入には使いません。過去の HSRTimer **`0.1.0-pre`** を使う場合だけ、当時の配布 ZIP を展開して、中の `HSRTimer.dll` を同じ HSRTimer 用フォルダーに入れます。
 
-片方だけ使う場合は、そのプラグインの行だけが必要です。両方使う場合は次のようになります。
+片方だけ使う場合は、その DLL だけを入れます。両方使う場合は次のようになります。パスは一例です。
 
 ```text
-Content\
+C:\XboxGames\Human Fall Flat\Content\
 └─ BepInEx\
    └─ plugins\
-      ├─ HSRTimer-MicrosoftStore\
-      │  └─ HSRTimer-v0.1.1-pre.dll
-      └─ TwilightInputOverlay\
-         └─ TwilightInputOverlay-v0.1.1-pre.dll
+      ├─ HSRTimer-v0.1.2-pre.dll
+      └─ TwilightInputOverlay-v0.1.1-pre.dll
 ```
 
 ## 動作確認
@@ -93,7 +91,7 @@ Content\
 - 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
 - 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
 - INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。
-- HSRTimer Microsoft Store `0.1.1-pre` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
+- HSRTimer Microsoft Store `0.1.2-pre` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
 
 ## トラブルシューティング
 
@@ -105,7 +103,7 @@ Content\
 | 間違った BepInEx を入れた | ゲームを終了し、混在を避けて上記の **6.0.0-be.793 Unity IL2CPP Windows x64** を入れ直します。 |
 | HUD が出ない | DLL が `BepInEx\plugins` の下にあるか、ログに読み込みが記録されているか、設定で HUD 表示が有効かを確認します。 |
 | Home で設定が開かない | ゲーム画面をクリックしてから Home を押します。キーを変更済みの場合は変更後のキーを使います。統合時は HSRTimer 側の設定キーを使います。 |
-| Input Overlay タブが出ない | HSRTimer **0.1.1-pre** と TwilightInputOverlay **0.1.1-pre** の両方がロードされているかをログで確認します。旧 HSRTimer **0.1.0-pre** との組み合わせでは Overlay の独立画面を使います。 |
+| Input Overlay タブが出ない | HSRTimer **0.1.2-pre** と TwilightInputOverlay **0.1.1-pre** の両方がロードされているかをログで確認します。旧 HSRTimer **0.1.0-pre** との組み合わせでは Overlay の独立画面を使います。 |
 | 旧版と新版が重複している | ゲームを終了し、`BepInEx\plugins` 全体でプラグイン名を検索します。同じプラグインの旧 DLL を外し、新 DLL だけを残します。 |
 
 BepInEx のコンソール画面を隠したい場合は、ゲーム終了後に `BepInEx\config\BepInEx.cfg` をメモ帳で開き、既存の `[Logging.Console]` の `Enabled = false` を設定します。ログファイルは `BepInEx\LogOutput.log` で確認できます。[コンソール設定の参考](https://docs.bepinex.dev/articles/user_guide/troubleshooting.html#enable-console)
@@ -137,7 +135,7 @@ dotnet build .\src\TwilightInputOverlay\TwilightInputOverlay.csproj -c Release "
 
 ```powershell
 $BuildDir = '.\src\TwilightInputOverlay\bin\Release\net6.0'
-$PluginDir = Join-Path $BepInExDir 'plugins\TwilightInputOverlay'
+$PluginDir = Join-Path $BepInExDir 'plugins'
 New-Item -ItemType Directory -Force -Path $PluginDir | Out-Null
 Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $BuildDir 'LICENSE') -Destination $PluginDir
 ```

@@ -17,7 +17,6 @@ namespace TwilightInputOverlay
             KeyLayout,
         }
 
-        private static readonly Dictionary<string, string> ColorHexBuf = new Dictionary<string, string>();
         private static string[] _langCodes;
         private static string[] _langDisplays;
         private static bool _langDropdownOpen;
@@ -79,7 +78,6 @@ namespace TwilightInputOverlay
             _presetNewName = "";
             _presetErrorKey = null;
             _presetNames = null; // re-read the list each time the panel opens
-            ColorHexBuf.Clear();
             LabelBuf.Clear();
             WidthBuf.Clear();
         }
@@ -623,31 +621,44 @@ namespace TwilightInputOverlay
         {
             string bufKey = _editingState + ":" + key;
 
-            // Hex input.
             GUILayout.BeginHorizontal();
             try
             {
-                if (!ColorHexBuf.TryGetValue(bufKey, out string buf))
-                    buf = ColorUtil.ToHex(c);
-                string newText = PanelTextInput.Draw("color:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(90));
-                ColorHexBuf[bufKey] = newText;
-                if (newText != buf && ColorUtil.TryParseColor(newText, out Color fromText))
-                    set(fromText);
+                string hex = ColorUtil.ToHex(c);
+                string edited = PanelTextInput.Draw("color:" + bufKey, hex, PanelStyles.TextField, GUILayout.Width(90));
+                if (edited != hex && ColorUtil.TryParseColor(edited, out Color parsed))
+                {
+                    c = parsed;
+                    set(c);
+                }
                 GUILayout.Label(loc.Get(key), PanelStyles.Label);
                 GUILayout.Label(loc.Get("PANEL_COLOR_HEX"), PanelStyles.Label);
             }
             finally { GUILayout.EndHorizontal(); }
 
-            float r = SliderRow(bufKey + ":r", "R", c.r, 0f, 1f);
-            float g = SliderRow(bufKey + ":g", "G", c.g, 0f, 1f);
-            float b = SliderRow(bufKey + ":b", "B", c.b, 0f, 1f);
-            float a = SliderRow(bufKey + ":a", "A", c.a, 0f, 1f);
-            if (r != c.r || g != c.g || b != c.b || a != c.a)
+            GUILayout.BeginHorizontal();
+            try
             {
-                Color next = new Color(r, g, b, a);
-                set(next);
-                ColorHexBuf[bufKey] = ColorUtil.ToHex(next);
+                float r = ColorSlider("R", c.r);
+                GUILayout.Space(4);
+                float g = ColorSlider("G", c.g);
+                GUILayout.Space(4);
+                float b = ColorSlider("B", c.b);
+                GUILayout.Space(4);
+                float a = ColorSlider("A", c.a);
+                if (r != c.r || g != c.g || b != c.b || a != c.a)
+                {
+                    PanelTextInput.Cancel("color:" + bufKey);
+                    set(new Color(r, g, b, a));
+                }
             }
+            finally { GUILayout.EndHorizontal(); }
+        }
+
+        private static float ColorSlider(string label, float value)
+        {
+            GUILayout.Label(label, GUILayout.Width(14));
+            return GUILayout.HorizontalSlider(value, 0f, 1f, GUILayout.Width(70));
         }
 
         // ── keybind capture + row ──

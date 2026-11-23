@@ -23,7 +23,11 @@ namespace TwilightInputOverlay
 
             ClassInjector.RegisterTypeInIl2Cpp<InputHud>();
             ClassInjector.RegisterTypeInIl2Cpp<SettingsPanel>();
+            ClassInjector.RegisterTypeInIl2Cpp<MouseCursorOverlay>();
+            ClassInjector.RegisterTypeInIl2Cpp<RainingKeysOverlay>();
             AddComponent<InputHud>();
+            AddComponent<MouseCursorOverlay>();
+            AddComponent<RainingKeysOverlay>();
             AddComponent<SettingsPanel>();
         }
     }

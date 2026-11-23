@@ -575,7 +575,7 @@ namespace TwilightInputOverlay
         {
             if (string.IsNullOrEmpty(s)) return fallback;
             return float.TryParse(s.Trim(), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out float f) ? f : fallback;
+                System.Globalization.CultureInfo.InvariantCulture, out float f) && float.IsFinite(f) ? f : fallback;
         }
 
         public static int ParseInt(string s, int fallback)

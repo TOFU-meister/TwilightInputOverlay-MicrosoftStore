@@ -1,6 +1,6 @@
 # TwilightInputOverlay Microsoft Store
 
-Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグインです。第1段階の対象は Windows x64、Unity 2019.4.24f1 / IL2CPP、BepInEx 6.0.0-be.793 IL2CPP、.NET 6 です。
+Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグインです。対象は Windows x64、Unity 2019.4.24f1 / IL2CPP、BepInEx 6.0.0-be.793 IL2CPP、.NET 6 です。
 
 - 移植元は [TwilightCup/TwilightInputOverlay v1.3.0](https://github.com/TwilightCup/TwilightInputOverlay/tree/b84b4d2bf0f8535f18e203c28e0491e8516b012c) です。
 - IL2CPP のコンポーネント起動と IMGUI の互換処理は [HSRTimer Microsoft Store](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/tree/0a5ba0d708aa0bc55559ebc6ed12c2a2a4d4bf70) を参考にしています。
@@ -33,8 +33,10 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 - HUD はキーの押下状態を表示します。キー配置、二分割キー、キーの幅、ラベルのサイズ・位置、色、拡大率、フェードを設定できます。
 - 独立設定画面は既定で `Home` です。HSRTimer と同じキーで両方の画面が開く場合は、どちらかの設定キーを変更してください。数値や文字は対象をクリックし、入力後に Enter で適用、Esc で取消できます。
 - 設定先は `%LOCALAPPDATA%\TwilightInputOverlay-MicrosoftStore` です。従来の設定を引き継ぐ場合は、ゲーム終了中に旧環境の `BepInEx\config\TwilightInputOverlay` から `settings.ini`、`presets`、`lang` をコピーします。プリセット読み込み時は現在の設定画面キーと言語を維持します。
-- この段階では矩形のキーを表示します。角丸、マウスカーソルと軌跡、Raining Keys、および効果用のデバッグ切り替えは後段の対象です。既存 INI にある対応設定値は引き継ぎます。
-- HSRTimer の「Input Overlay」タブ統合は後段の対象です。独立ウィンドウを担当する `SettingsPanel` と設定内容を描く `PanelContent` は別クラスです。
+- 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
+- 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
+- INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。
+- HSRTimer の「Input Overlay」タブ統合は第4段階です。独立ウィンドウを担当する `SettingsPanel` と設定内容を描く `PanelContent` は別クラスです。
 
 ## 実機確認
 
@@ -42,3 +44,7 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 2. 初期 HUD の Y・W・A・S・D・Space、および左右マウスボタンの二分割表示が、同時押しと解放も含めて反応すること。サイドボタンは割り当て変更後に確認すること。
 3. `Home` で設定が開き、キーの再割り当て、色・位置・倍率、プリセットの保存・復元が反映されること。再起動後は設定とキー配置を確認すること。
 4. メニューとステージを往復しても HUD が一つだけ表示されること。HSRTimer を導入した状態でも両方の HUD が動き、設定キーを分けると個別に操作できること。
+5. 「Key Overlay」の角丸を `0` と正の値で切り替え、キーの角、枠線、左右マウスの二分割と押下色を確認すること。
+6. 「Mouse Overlay」でカーソルと背景を個別に切り替え、ゲームプレイ中とメニューで移動を確認すること。速い移動、停止、反転で軌跡が伸縮し、伸びを `1` にすると軌跡が消えること。Clamp、Wrap、中央に戻る設定も確認すること。
+7. 「Raining Keys」で最上段のキーを長押しし、離してから再入力すること。バーが指定範囲で伸び、解放後に上端から消え、左右マウスで独立して発生すること。角丸、色、間隔、速度、幅を変更し、プリセットの保存と復元を確認すること。
+8. 「Debug」の有効時に動作中の `[RainingKeys]` 統計が出て、無効時は止まること。Overlay 4クラスの登録が成功し、Overlay 名義の `unsupported parameter` が出ないことを確認すること。

@@ -1,0 +1,344 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace TwilightInputOverlay
+{
+    /// <summary>
+    /// Generates and caches textures used to draw key cells. Fill and border are
+    /// drawn as white "mask" textures that are tinted via GUI.color at draw time,
+    /// so animated/fading colors never force texture regeneration — only the
+    /// shape geometry (size/radius/border width) is baked. The border is drawn
+    /// after the fill so it is always on top. There is also a split-fill variant
+    /// used by the combined left/right hand key, which lets each half keep its
+    /// own fill color while sharing one outer shape (two colors cannot be tinted
+    /// in a single draw, so that one remains color-baked).
+    /// </summary>
+    internal static class RoundedRectTextureCache
+    {
+        private struct FillMaskKey
+        {
+            public int Width;
+            public int Height;
+            public int Radius;
+        }
+
+        private struct SplitFillKey
+        {
+            public int Width;
+            public int Height;
+            public int Radius;
+            public uint LeftFill;
+            public uint RightFill;
+        }
+
+        private struct BorderMaskKey
+        {
+            public int Width;
+            public int Height;
+            public int Radius;
+            public int BorderWidth;
+        }
+
+        // One rounded "end" of a bar: width x radius with the corners of only
+        // one edge rounded. Used by RainingKeysOverlay so a growing bar never
+        // re-bakes a full-size texture every frame (see BuildEndCap).
+        private struct EndCapKey
+        {
+            public int Width;
+            public int Radius;
+            public bool Top;
+        }
+
+        private static readonly Dictionary<FillMaskKey, Texture2D> FillMaskCache = new Dictionary<FillMaskKey, Texture2D>();
+        private static readonly Dictionary<SplitFillKey, Texture2D> SplitFillCache = new Dictionary<SplitFillKey, Texture2D>();
+        private static readonly Dictionary<BorderMaskKey, Texture2D> BorderMaskCache = new Dictionary<BorderMaskKey, Texture2D>();
+        private static readonly Dictionary<EndCapKey, Texture2D> EndCapCache = new Dictionary<EndCapKey, Texture2D>();
+
+        // Diagnostics counters for the Raining Keys debug logging: how often the
+        // fill-mask cache is asked for a texture vs. how often it actually bakes
+        // a new one (a bake is a Texture2D + Color32[] allocation). A high
+        // bake-per-second rate while the HUD is static means something is
+        // re-baking every frame, which is the first thing to check on a memory
+        // growth report. EndCapCalls/EndCapBakes track the Raining bar end caps
+        // the same way; both should stay ~0 in steady state.
+        public static int FillCalls;
+        public static int FillBakes;
+        public static int EndCapCalls;
+        public static int EndCapBakes;
+        public static int FillCacheCount => FillMaskCache.Count;
+        public static int EndCapCacheCount => EndCapCache.Count;
+
+        /// <summary>White fill mask; tint with GUI.color to apply the actual fill color.</summary>
+        public static Texture2D GetFillMask(int width, int height, int radius)
+        {
+            FillCalls++;
+            width = Mathf.Max(1, width);
+            height = Mathf.Max(1, height);
+            if (!OverlayTexture.CanBake(width, height)) return null;
+            radius = ClampRadius(width, height, radius);
+
+            var key = new FillMaskKey { Width = width, Height = height, Radius = radius };
+            Texture2D tex;
+            if (FillMaskCache.TryGetValue(key, out tex))
+                return tex;
+
+            if (FillMaskCache.Count > 32)
+                Release(FillMaskCache);
+            tex = BuildFillMask(width, height, radius);
+            FillBakes++;
+            if (tex != null) FillMaskCache[key] = tex;
+            return tex;
+        }
+
+        public static Texture2D GetSplitFill(int width, int height, int radius, Color leftFill, Color rightFill)
+        {
+            width = Mathf.Max(1, width);
+            height = Mathf.Max(1, height);
+            if (!OverlayTexture.CanBake(width, height)) return null;
+            radius = ClampRadius(width, height, radius);
+
+            var key = new SplitFillKey
+            {
+                Width = width,
+                Height = height,
+                Radius = radius,
+                LeftFill = Pack(leftFill),
+                RightFill = Pack(rightFill),
+            };
+            Texture2D tex;
+            if (SplitFillCache.TryGetValue(key, out tex))
+                return tex;
+
+            if (SplitFillCache.Count > 64)
+                Release(SplitFillCache);
+            tex = BuildSplitFill(width, height, radius, leftFill, rightFill);
+            if (tex != null) SplitFillCache[key] = tex;
+            return tex;
+        }
+
+        /// <summary>White border mask; tint with GUI.color to apply the actual border color.</summary>
+        public static Texture2D GetBorderMask(int width, int height, int radius, int borderWidth)
+        {
+            width = Mathf.Max(1, width);
+            height = Mathf.Max(1, height);
+            if (!OverlayTexture.CanBake(width, height)) return null;
+            radius = ClampRadius(width, height, radius);
+            borderWidth = Mathf.Max(0, borderWidth);
+
+            var key = new BorderMaskKey
+            {
+                Width = width,
+                Height = height,
+                Radius = radius,
+                BorderWidth = borderWidth,
+            };
+            Texture2D tex;
+            if (BorderMaskCache.TryGetValue(key, out tex))
+                return tex;
+
+            if (BorderMaskCache.Count > 32)
+                Release(BorderMaskCache);
+            tex = BuildBorderMask(width, height, radius, borderWidth);
+            if (tex != null) BorderMaskCache[key] = tex;
+            return tex;
+        }
+
+        /// <summary>White rounded end cap for a bar: <paramref name="width"/> x
+        /// <paramref name="radius"/> pixels with the corners of one edge rounded
+        /// and the opposite edge straight. The top and bottom caps of a bar are
+        /// built from the same reference shape so they tile with a plain middle
+        /// band into an exact rounded rectangle — see
+        /// RainingKeysOverlay.DrawBars. The cap is baked once per width/radius,
+        /// so a bar whose height changes every frame never re-bakes.</summary>
+        public static Texture2D GetEndCap(int width, int radius, bool top)
+        {
+            EndCapCalls++;
+            width = Mathf.Max(1, width);
+            radius = Mathf.Max(0, Mathf.Min(radius, width / 2));
+
+            if (!OverlayTexture.CanBake(width, radius)) return null;
+
+            var key = new EndCapKey { Width = width, Radius = radius, Top = top };
+            Texture2D tex;
+            if (EndCapCache.TryGetValue(key, out tex))
+                return tex;
+
+            if (EndCapCache.Count > 64)
+                Release(EndCapCache);
+            tex = BuildEndCap(width, radius, top);
+            EndCapBakes++;
+            if (tex != null) EndCapCache[key] = tex;
+            return tex;
+        }
+
+        internal static void ReleaseKeyMasks()
+        {
+            Release(FillMaskCache);
+            Release(SplitFillCache);
+            Release(BorderMaskCache);
+        }
+
+        internal static void ReleaseEndCaps() => Release(EndCapCache);
+
+        private static void Release<TKey>(Dictionary<TKey, Texture2D> cache)
+        {
+            foreach (var texture in cache.Values)
+                Object.Destroy(texture);
+            cache.Clear();
+        }
+
+        private static int ClampRadius(int width, int height, int radius)
+        {
+            return Mathf.Max(0, Mathf.Min(radius, Mathf.Min(width, height) / 2));
+        }
+
+        private static Texture2D BuildFillMask(int width, int height, int radius)
+        {
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float coverage;
+                    bool inside = ShapeCoverage(x + 0.5f, y + 0.5f, width, height, radius, out coverage);
+                    Color c = new Color(1f, 1f, 1f, inside ? coverage : 0f);
+                    pixels[y * width + x] = OverlayTexture.Pixel(c);
+                }
+            }
+
+            return OverlayTexture.Upload(width, height, pixels);
+        }
+
+        private static Texture2D BuildSplitFill(int width, int height, int radius, Color leftFill, Color rightFill)
+        {
+            float mid = width * 0.5f;
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float px = x + 0.5f;
+                    float coverage;
+                    bool inside = ShapeCoverage(px, y + 0.5f, width, height, radius, out coverage);
+                    Color c = new Color(0f, 0f, 0f, 0f);
+                    if (inside)
+                    {
+                        c = px < mid ? leftFill : rightFill;
+                        c.a *= coverage;
+                    }
+                    pixels[y * width + x] = OverlayTexture.Pixel(c);
+                }
+            }
+
+            return OverlayTexture.Upload(width, height, pixels);
+        }
+
+        private static Texture2D BuildBorderMask(int width, int height, int radius, int borderWidth)
+        {
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float px = x + 0.5f;
+                    float py = y + 0.5f;
+                    float alpha = 0f;
+
+                    float coverage;
+                    bool inside = ShapeCoverage(px, py, width, height, radius, out coverage);
+                    if (inside && borderWidth > 0)
+                    {
+                        float edgeDist = EdgeDistance(px, py, width, height, radius);
+                        if (edgeDist <= borderWidth)
+                        {
+                            alpha = radius <= 0f
+                                ? 1f
+                                : Mathf.Clamp01(borderWidth - edgeDist + 0.5f);
+                        }
+                    }
+                    pixels[y * width + x] = OverlayTexture.Pixel(new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            return OverlayTexture.Upload(width, height, pixels);
+        }
+
+        /// <summary>The top or bottom half of a 2*radius-high rounded rect:
+        /// pixels are sampled from ShapeCoverage's reference shape so the arc
+        /// geometry matches BuildFillMask exactly, and the inner edge (the
+        /// straight one) lands at full coverage so the cap tiles seamlessly with
+        /// the plain middle band.
+        /// The sample rows are MIRRORED on purpose: in IMGUI a texture's first
+        /// pixels row renders at the BOTTOM of the drawn rect (all previous
+        /// masks in this plugin are vertically symmetric, so they never exposed
+        /// this), so the rounded edge is placed on the row that ends up at the
+        /// cap's outer end — the top cap's rounded edge at the rect's top, the
+        /// bottom cap's at the rect's bottom.</summary>
+        private static Texture2D BuildEndCap(int width, int radius, bool top)
+        {
+            int refHeight = 2 * radius; // reference rounded-rect height
+            var pixels = new Color32[width * Mathf.Max(1, radius)];
+            for (int y = 0; y < radius; y++)
+            {
+                // Reference rows run top-down: [0, radius) rounded top, then
+                // [radius, 2*radius) rounded bottom. Map them mirrored so the
+                // rounded edge lands on the row IMGUI renders at the outer end.
+                int fy = top ? (radius - 1 - y) : (2 * radius - 1 - y);
+                for (int x = 0; x < width; x++)
+                {
+                    float coverage;
+                    bool inside = ShapeCoverage(x + 0.5f, fy + 0.5f, width, refHeight, radius, out coverage);
+                    pixels[y * width + x] = OverlayTexture.Pixel(new Color(1f, 1f, 1f, inside ? coverage : 0f));
+                }
+            }
+
+            return OverlayTexture.Upload(width, radius, pixels);
+        }
+
+        private static bool ShapeCoverage(float px, float py, int width, int height, int radius, out float coverage)
+        {
+            if (radius <= 0)
+            {
+                // Pixel centers are always inside the rectangle.
+                coverage = 1f;
+                return true;
+            }
+
+            float r = radius;
+            float nx = Mathf.Clamp(px, r, width - r);
+            float ny = Mathf.Clamp(py, r, height - r);
+            float dist = Vector2.Distance(new Vector2(px, py), new Vector2(nx, ny));
+            if (dist > r)
+            {
+                coverage = 0f;
+                return false;
+            }
+
+            coverage = Mathf.Clamp01((r - dist) + 0.5f);
+            return true;
+        }
+
+        private static float EdgeDistance(float px, float py, int width, int height, int radius)
+        {
+            if (radius <= 0)
+            {
+                return Mathf.Min(Mathf.Min(px, width - px), Mathf.Min(py, height - py));
+            }
+
+            float r = radius;
+            float nx = Mathf.Clamp(px, r, width - r);
+            float ny = Mathf.Clamp(py, r, height - r);
+            float dist = Vector2.Distance(new Vector2(px, py), new Vector2(nx, ny));
+            return r - dist;
+        }
+
+        private static uint Pack(Color c)
+        {
+            uint r = (uint)(Mathf.Clamp01(c.r) * 255f + 0.5f);
+            uint g = (uint)(Mathf.Clamp01(c.g) * 255f + 0.5f);
+            uint b = (uint)(Mathf.Clamp01(c.b) * 255f + 0.5f);
+            uint a = (uint)(Mathf.Clamp01(c.a) * 255f + 0.5f);
+            return (r << 24) | (g << 16) | (b << 8) | a;
+        }
+    }
+}

@@ -1,3 +1,4 @@
+using Il2CppInterop.Runtime.Attributes;
 using UnityEngine;
 
 namespace TwilightInputOverlay
@@ -82,6 +83,7 @@ namespace TwilightInputOverlay
             }
         }
 
+        [HideFromIl2Cpp]
         private void ReportDrawFailure(System.Exception error)
         {
             _drawFailed = true;

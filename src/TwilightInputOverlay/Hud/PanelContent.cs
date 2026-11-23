@@ -12,6 +12,8 @@ namespace TwilightInputOverlay
         {
             Root,
             KeyOverlay,
+            MouseOverlay,
+            RainingKeys,
             KeyLayout,
         }
 
@@ -96,6 +98,12 @@ namespace TwilightInputOverlay
                 case SubPage.KeyOverlay:
                     DrawKeyOverlayPage(loc, cfg);
                     return;
+                case SubPage.MouseOverlay:
+                    DrawMouseOverlayPage(loc, cfg);
+                    return;
+                case SubPage.RainingKeys:
+                    DrawRainingKeysPage(loc, cfg);
+                    return;
                 case SubPage.KeyLayout:
                     if (_activeRow >= 0 && _activeRow < s.Rows.Count)
                     {
@@ -126,6 +134,10 @@ namespace TwilightInputOverlay
                 }
             }
 
+            // Diagnostics toggle (plugin-specific, available in both modes).
+            Section(loc.Get("PANEL_DEBUG"));
+            s.DebugInfo = Toggle(loc.Get("SETTINGS_DEBUG_INFO"), s.DebugInfo);
+
             Section(loc.Get("SETTINGS_PRESET"));
             DrawPresetSelector(cfg, loc);
 
@@ -133,6 +145,10 @@ namespace TwilightInputOverlay
             GUILayout.Label(loc.Get("PANEL_SELECT_PAGE"), PanelStyles.Small);
             if (GUILayout.Button(loc.Get("TAB_KEY_OVERLAY"), PanelStyles.Button))
                 _subPage = SubPage.KeyOverlay;
+            if (GUILayout.Button(loc.Get("TAB_MOUSE_OVERLAY"), PanelStyles.Button))
+                _subPage = SubPage.MouseOverlay;
+            if (GUILayout.Button(loc.Get("TAB_RAINING_KEYS"), PanelStyles.Button))
+                _subPage = SubPage.RainingKeys;
             if (GUILayout.Button(loc.Get("TAB_KEY_LAYOUT"), PanelStyles.Button))
                 _subPage = SubPage.KeyLayout;
         }
@@ -165,6 +181,8 @@ namespace TwilightInputOverlay
             Section(loc.Get("PANEL_GRID"));
             s.Spacing = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_SPACING"), s.Spacing, 0f, 24f));
 
+            s.CornerRadius = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_CORNER_RADIUS"), s.CornerRadius, 0f, 24f));
+
             Section(loc.Get("PANEL_STYLE"));
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(_editingState == 0, loc.Get("PANEL_STATE_IDLE"), PanelStyles.Button))
@@ -177,6 +195,59 @@ namespace TwilightInputOverlay
             ColorRow(loc, "PANEL_COLOR_TEXT", style.Text, c => style.Text = c);
             ColorRow(loc, "PANEL_COLOR_BORDER", style.Border, c => style.Border = c);
             ColorRow(loc, "PANEL_COLOR_FILL", style.Fill, c => style.Fill = c);
+        }
+
+        // ── Sub-page: Mouse Overlay (cursor region + trail) ──
+        private static void DrawMouseOverlayPage(LocalizationService loc, ConfigService cfg)
+        {
+            var s = cfg.Settings;
+            GUILayout.Space(6);
+            if (GUILayout.Button(loc.Get("PANEL_BACK"), PanelStyles.Button))
+            {
+                PanelTextInput.Cancel();
+                _subPage = SubPage.Root;
+                return; // stop rendering the sub-page this frame
+            }
+
+            Section(loc.Get("PANEL_CURSOR"));
+            s.ShowCursor = Toggle(loc.Get("SETTINGS_SHOW_CURSOR"), s.ShowCursor);
+            s.ShowCursorRegion = Toggle(loc.Get("SETTINGS_SHOW_CURSOR_REGION"), s.ShowCursorRegion);
+            s.CursorRawInput = Toggle(loc.Get("SETTINGS_CURSOR_RAW_INPUT"), s.CursorRawInput);
+            s.CursorClamp = Toggle(loc.Get("SETTINGS_CURSOR_CLAMP"), s.CursorClamp);
+            s.CursorWrap = Toggle(loc.Get("SETTINGS_CURSOR_WRAP"), s.CursorWrap);
+            s.CursorRegionX = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_X"), s.CursorRegionX, "0.##");
+            s.CursorRegionY = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_Y"), s.CursorRegionY, "0.##");
+            s.CursorRegionWidth = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_W"), s.CursorRegionWidth, "0.##"));
+            s.CursorRegionHeight = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_H"), s.CursorRegionHeight, "0.##"));
+            ColorRow(loc, "PANEL_CURSOR_REGION_COLOR", s.CursorRegionColor, c => s.CursorRegionColor = c);
+            s.CursorRadius = Mathf.Max(1f, SliderRow(loc.Get("SETTINGS_CURSOR_RADIUS"), s.CursorRadius, 2f, 64f));
+            s.CursorSensitivity = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_CURSOR_SENSITIVITY"), s.CursorSensitivity, 0.1f, 10f));
+            s.TrailMaxStretch = Mathf.Max(1f, SliderRow(loc.Get("SETTINGS_TRAIL_STRETCH"), s.TrailMaxStretch, 1f, 4f));
+            s.TrailResponse = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_TRAIL_RESPONSE"), s.TrailResponse, 0f, 30f));
+            ColorRow(loc, "PANEL_CURSOR_COLOR", s.CursorColor, c => s.CursorColor = c);
+        }
+
+        // ── Sub-page: Raining Keys (bars rising from the first row) ──
+        private static void DrawRainingKeysPage(LocalizationService loc, ConfigService cfg)
+        {
+            var s = cfg.Settings;
+            GUILayout.Space(6);
+            if (GUILayout.Button(loc.Get("PANEL_BACK"), PanelStyles.Button))
+            {
+                PanelTextInput.Cancel();
+                _subPage = SubPage.Root;
+                return; // stop rendering the sub-page this frame
+            }
+
+            Section(loc.Get("PANEL_RAINING"));
+            GUILayout.Label(loc.Get("SETTINGS_RAINING_HINT"), PanelStyles.Small);
+            s.RainingEnabled = Toggle(loc.Get("SETTINGS_RAINING_ENABLED"), s.RainingEnabled);
+            s.RainingHeight = IntFieldRow(loc.Get("SETTINGS_RAINING_HEIGHT"), s.RainingHeight, "raining:height", 1, 500);
+            s.RainingGap = IntFieldRow(loc.Get("SETTINGS_RAINING_GAP"), s.RainingGap, "raining:gap", 0, 200);
+            s.RainingSpeed = IntFieldRow(loc.Get("SETTINGS_RAINING_SPEED"), s.RainingSpeed, "raining:speed", 0, 1000);
+            s.RainingWidth = Mathf.Max(0f, FloatFieldRow(loc.Get("SETTINGS_RAINING_WIDTH"), s.RainingWidth, "0.##"));
+            s.RainingRadius = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_RAINING_RADIUS"), s.RainingRadius, 0f, 24f));
+            ColorRow(loc, "PANEL_RAINING_COLOR", s.RainingColor, c => s.RainingColor = c);
         }
 
         // ── Sub-page: Key Layout (the customizable key layout) ──
@@ -481,17 +552,15 @@ namespace TwilightInputOverlay
                 WidthBuf[bufKey] = buf;
             }
             string next = PanelTextInput.Draw("width:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(80));
-            bool editing = next != buf;
             WidthBuf[bufKey] = next;
             GUILayout.Label(label, PanelStyles.Label);
             GUILayout.EndHorizontal();
 
             int parsed;
-            if (int.TryParse(next.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+            if (next != buf && int.TryParse(next.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
             {
                 int clamped = Mathf.Clamp(parsed, min, max);
-                if (!editing && clamped != value)
-                    WidthBuf[bufKey] = clamped.ToString(CultureInfo.InvariantCulture);
+                WidthBuf[bufKey] = clamped.ToString(CultureInfo.InvariantCulture);
                 return clamped;
             }
             return value; // unparseable (half-typed) → keep the old value

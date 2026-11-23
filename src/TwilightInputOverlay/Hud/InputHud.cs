@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Il2CppInterop.Runtime.Attributes;
 using UnityEngine;
 
 namespace TwilightInputOverlay
@@ -55,6 +56,8 @@ namespace TwilightInputOverlay
             };
         }
 
+        private void OnDestroy() => RoundedRectTextureCache.ReleaseKeyMasks();
+
         private void Update()
         {
             var cfg = ConfigService.Instance;
@@ -84,6 +87,7 @@ namespace TwilightInputOverlay
             _fades = next;
         }
 
+        [HideFromIl2Cpp]
         private void Advance(Dictionary<int, float> next, int slot, bool pressed, float speed)
         {
             float target = pressed ? 1f : 0f;
@@ -113,6 +117,7 @@ namespace TwilightInputOverlay
 
             float cell = Mathf.Max(8f, 56f * s.Scale);
             float spacing = Mathf.Max(0f, s.Spacing * s.Scale);
+            int radius = Mathf.Max(0, Mathf.RoundToInt(s.CornerRadius * s.Scale));
             int borderWidth = Mathf.Max(0, Mathf.RoundToInt(2f * s.Scale));
 
             // Bottom-left anchored: (OffsetX, OffsetY) from the bottom-left corner.
@@ -121,11 +126,12 @@ namespace TwilightInputOverlay
             float y = Screen.height - s.OffsetY - blockHeight;
 
             for (int r = 0; r < rows.Count; r++)
-                DrawRow(rows[r], x, y + r * (cell + spacing), cell, spacing, borderWidth, s.ShowKeyText);
+                DrawRow(rows[r], x, y + r * (cell + spacing), cell, spacing, radius, borderWidth, s.ShowKeyText);
         }
 
+        [HideFromIl2Cpp]
         private void DrawRow(KeyRow row, float x, float y, float cell,
-            float spacing, int borderWidth, bool showText)
+            float spacing, int radius, int borderWidth, bool showText)
         {
             float cx = x;
             for (int i = 0; i < row.Keys.Count; i++)
@@ -143,9 +149,9 @@ namespace TwilightInputOverlay
 
                 var rect = new Rect(cx, y, w, cell);
                 if (e.Width == 1 && e.Dual)
-                    DrawDualKey(e, rect, cell, borderWidth, showText);
+                    DrawDualKey(e, rect, cell, radius, borderWidth, showText);
                 else
-                    DrawKey(e, rect, cell, borderWidth, showText);
+                    DrawKey(e, rect, cell, radius, borderWidth, showText);
 
                 cx += w;
                 if (i < row.Keys.Count - 1)
@@ -160,20 +166,24 @@ namespace TwilightInputOverlay
             return cell * e.Width + spacing * (e.Width - 1);
         }
 
-        private void DrawKey(KeyEntry e, Rect rect, float cell, int borderWidth, bool showText)
+        [HideFromIl2Cpp]
+        private void DrawKey(KeyEntry e, Rect rect, float cell, int radius, int borderWidth, bool showText)
         {
             var s = ConfigService.Instance.Settings;
             float t = GetFade(FadeSlot(e, -1));
             var style = LerpStyle(s.Idle, s.Pressed, t);
 
-            DrawFill(rect, style.Fill);
-            DrawBorder(rect, borderWidth, style.Border);
+            var fill = radius > 0 ? RoundedRectTextureCache.GetFillMask(
+                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius) : null;
+            DrawFill(rect, style.Fill, fill);
+            DrawKeyBorder(rect, fill != null ? radius : 0, borderWidth, style.Border);
 
             if (showText && !string.IsNullOrEmpty(e.Label))
                 DrawText(rect, e.Label, style.Text, cell, s.KeyTextOffsetX * s.Scale, s.KeyTextOffsetY * s.Scale);
         }
 
-        private void DrawDualKey(KeyEntry e, Rect rect, float cell, int borderWidth, bool showText)
+        [HideFromIl2Cpp]
+        private void DrawDualKey(KeyEntry e, Rect rect, float cell, int radius, int borderWidth, bool showText)
         {
             var s = ConfigService.Instance.Settings;
             float leftT = GetFade(FadeSlot(e, 0));
@@ -187,9 +197,17 @@ namespace TwilightInputOverlay
 
             var leftRect = new Rect(rect.x, rect.y, rect.width * 0.5f, rect.height);
             var rightRect = new Rect(rect.x + leftRect.width, rect.y, leftRect.width, rect.height);
-            DrawFill(leftRect, leftStyle.Fill);
-            DrawFill(rightRect, rightStyle.Fill);
-            DrawBorder(rect, borderWidth, borderStyle.Border);
+            var fill = radius > 0 ? RoundedRectTextureCache.GetSplitFill(
+                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius,
+                leftStyle.Fill, rightStyle.Fill) : null;
+            if (fill != null)
+                DrawFill(rect, Color.white, fill);
+            else
+            {
+                DrawFill(leftRect, leftStyle.Fill);
+                DrawFill(rightRect, rightStyle.Fill);
+            }
+            DrawKeyBorder(rect, fill != null ? radius : 0, borderWidth, borderStyle.Border);
 
             if (showText)
             {
@@ -202,12 +220,29 @@ namespace TwilightInputOverlay
             }
         }
 
-        private static void DrawFill(Rect rect, Color color)
+        private static void DrawFill(Rect rect, Color color, Texture2D texture = null)
         {
             Color previous = GUI.color;
             GUI.color = color;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = previous;
+            try
+            {
+                GUI.DrawTexture(rect, texture != null ? texture : Texture2D.whiteTexture);
+            }
+            finally
+            {
+                GUI.color = previous;
+            }
+        }
+
+        private static void DrawKeyBorder(Rect rect, int radius, int width, Color color)
+        {
+            if (width <= 0) return;
+            var mask = radius > 0 ? RoundedRectTextureCache.GetBorderMask(
+                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius, width) : null;
+            if (mask != null)
+                DrawFill(rect, color, mask);
+            else
+                DrawBorder(rect, width, color);
         }
 
         private static void DrawBorder(Rect rect, int width, Color color)

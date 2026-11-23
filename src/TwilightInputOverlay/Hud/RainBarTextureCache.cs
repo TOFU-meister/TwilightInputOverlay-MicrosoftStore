@@ -11,8 +11,11 @@ namespace TwilightInputOverlay
         private const int Capacity = 96;
         private const int MaxCachedPixels = 2 * 1024 * 1024;
         private const int RadiusStepsPerPixel = 8;
-        private static readonly Dictionary<(int Width, int Height, int Radius), Texture2D> Cache = new();
-        private static readonly Queue<(int Width, int Height, int Radius)> Order = new();
+        private readonly record struct CacheKey(int Width, int Height, int Radius);
+        private readonly record struct CacheEntry(CacheKey Key, Texture2D Texture, int PixelCount);
+
+        private static readonly Dictionary<CacheKey, LinkedListNode<CacheEntry>> Cache = new();
+        private static readonly LinkedList<CacheEntry> Order = new();
 
         private static int _cachedPixels;
 
@@ -32,8 +35,14 @@ namespace TwilightInputOverlay
 
             int radiusSteps = Mathf.RoundToInt(radius * RadiusStepsPerPixel);
             if (radiusSteps == 0) return null;
-            var key = (shapeWidth, shapeHeight, radiusSteps);
-            if (Cache.TryGetValue(key, out var texture)) return texture;
+            var key = new CacheKey(shapeWidth, shapeHeight, radiusSteps);
+            if (Cache.TryGetValue(key, out var existing))
+            {
+                if (existing.Value.Texture != null)
+                    return existing.Value.Texture;
+
+                Remove(existing);
+            }
 
             float maskRadius = RainBarGeometry.Radius(shapeWidth, shapeHeight,
                 radiusSteps / (float)RadiusStepsPerPixel);
@@ -55,31 +64,38 @@ namespace TwilightInputOverlay
                 }
             }
 
-            texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels);
+            var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels);
             if (texture == null) return null;
             Bakes++;
 
-            while (Cache.Count == Capacity || _cachedPixels + pixels.Length > MaxCachedPixels)
+            while (Order.First is { } oldest
+                && (Cache.Count >= Capacity || _cachedPixels + pixels.Length > MaxCachedPixels))
             {
-                var oldest = Order.Dequeue();
-                var evicted = Cache[oldest];
-                _cachedPixels -= evicted.width * evicted.height;
-                UnityEngine.Object.Destroy(evicted);
-                Cache.Remove(oldest);
+                Remove(oldest);
             }
-            Cache.Add(key, texture);
-            Order.Enqueue(key);
+
+            var node = Order.AddLast(new CacheEntry(key, texture, pixels.Length));
+            Cache.Add(key, node);
             _cachedPixels += pixels.Length;
             return texture;
         }
 
+        private static void Remove(LinkedListNode<CacheEntry> node)
+        {
+            var entry = node.Value;
+            // Update bookkeeping before releasing the Unity object. The native
+            // texture can already be gone, and its size getters are not needed.
+            Cache.Remove(entry.Key);
+            Order.Remove(node);
+            _cachedPixels -= entry.PixelCount;
+            if (entry.Texture != null)
+                UnityEngine.Object.Destroy(entry.Texture);
+        }
+
         internal static void Release()
         {
-            foreach (var texture in Cache.Values)
-                UnityEngine.Object.Destroy(texture);
-            Cache.Clear();
-            Order.Clear();
-            _cachedPixels = 0;
+            while (Order.First is { } oldest)
+                Remove(oldest);
         }
     }
 }

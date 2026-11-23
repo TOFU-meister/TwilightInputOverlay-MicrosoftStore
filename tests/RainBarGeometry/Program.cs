@@ -77,3 +77,41 @@ foreach (int width in new[] { 56, 28 })
 }
 
 Console.WriteLine("Passed 616 rain mask cases for full and split bars, including both gaps.");
+
+RainBarTextureCache.Release();
+RainBarTextureCache.Release();
+Check(RainBarTextureCache.Count == 0, "release empty cache");
+
+var first = RainBarTextureCache.Get(28f, 100f, 9.5f);
+Check(ReferenceEquals(first, RainBarTextureCache.Get(28f, 100f, 9.5f)), "reuse live mask");
+UnityEngine.Object.Destroy(first);
+OverlayTexture.FailUpload = true;
+Check(RainBarTextureCache.Get(28f, 100f, 9.5f) == null, "dead hit and failed upload fall back");
+Check(RainBarTextureCache.Count == 0, "dead hit removed from cache");
+OverlayTexture.FailUpload = false;
+var rebuilt = RainBarTextureCache.Get(28f, 100f, 9.5f);
+Check(rebuilt != null && !ReferenceEquals(first, rebuilt), "dead hit can be rebuilt");
+
+for (int round = 0; round < 20; round++)
+{
+    for (int height = 2; height <= 180; height++)
+    {
+        var texture = RainBarTextureCache.Get(28f + round, height, 9.5f);
+        Check(texture != null, "repeat fill and eviction");
+        Check(ReferenceEquals(texture, RainBarTextureCache.Get(28f + round, height, 9.5f)),
+            "repeat reuse");
+    }
+    Check(RainBarTextureCache.Count <= 96, "entry limit");
+}
+Check(rebuilt.Destroyed, "old mask evicted without native size getters");
+RainBarTextureCache.Release();
+
+var large = RainBarTextureCache.Get(1024f, 1024f, 12f);
+RainBarTextureCache.Get(1024f, 1024f, 13f);
+UnityEngine.Object.Destroy(large);
+RainBarTextureCache.Get(1024f, 1024f, 14f);
+Check(RainBarTextureCache.Count == 2, "pixel limit evicts already-destroyed texture");
+RainBarTextureCache.Release();
+Check(RainBarTextureCache.Count == 0, "release populated cache");
+Check(RainBarTextureCache.Get(32f, 64f, 0f) == null, "square bars bypass cache");
+Console.WriteLine("Rain cache checks passed (3,580 insert/reuse pairs, invalid textures, empty release and both eviction limits).");

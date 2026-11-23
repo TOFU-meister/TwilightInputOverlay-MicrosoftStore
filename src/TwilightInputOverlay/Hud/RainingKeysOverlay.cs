@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Il2CppInterop.Runtime.Attributes;
 using UnityEngine;
@@ -39,6 +40,9 @@ namespace TwilightInputOverlay
         public RainingKeysOverlay(System.IntPtr pointer) : base(pointer) { }
 
         private void OnDestroy() => RainBarTextureCache.Release();
+
+        private bool _roundedDrawingFailed;
+        private bool _barDrawingFailed;
 
         /// <summary>
         /// One active bar. Screen/GUI Y grows downward, so "up" is smaller Y.
@@ -254,7 +258,7 @@ namespace TwilightInputOverlay
 
         private void OnGUI()
         {
-            if (Event.current.type != EventType.Repaint) return;
+            if (_barDrawingFailed || Event.current.type != EventType.Repaint) return;
 
             var cfg = ConfigService.Instance;
             if (cfg == null) return;
@@ -335,8 +339,42 @@ namespace TwilightInputOverlay
 
                 // Draw the complete mask once. BeginGroup clips the resulting
                 // shape without stretching or adding a new rounded edge.
-                var mask = RainBarTextureCache.Get(width, height, radius);
-                GUI.DrawTexture(rect, mask != null ? mask : Texture2D.whiteTexture);
+                DrawBar(rect, radius);
+                if (_barDrawingFailed) return;
+            }
+        }
+
+        private void DrawBar(Rect rect, float radius)
+        {
+            if (_barDrawingFailed) return;
+
+            if (!_roundedDrawingFailed && radius > 0f)
+            {
+                try
+                {
+                    var mask = RainBarTextureCache.Get(rect.width, rect.height, radius);
+                    if (mask != null)
+                    {
+                        GUI.DrawTexture(rect, mask);
+                        return;
+                    }
+                }
+                catch (Exception error)
+                {
+                    _roundedDrawingFailed = true;
+                    Plugin.Logger.LogWarning($"[RainingKeys] Rounded bars unavailable; using rectangles: {error}");
+                }
+            }
+
+            try
+            {
+                var white = Texture2D.whiteTexture;
+                if (white != null) GUI.DrawTexture(rect, white);
+            }
+            catch (Exception error)
+            {
+                _barDrawingFailed = true;
+                Plugin.Logger.LogWarning($"[RainingKeys] Rectangle rendering unavailable; pausing bar rendering: {error}");
             }
         }
 

@@ -38,7 +38,7 @@ namespace TwilightInputOverlay
     {
         public RainingKeysOverlay(System.IntPtr pointer) : base(pointer) { }
 
-        private void OnDestroy() => RoundedRectTextureCache.ReleaseEndCaps();
+        private void OnDestroy() => RainBarTextureCache.Release();
 
         /// <summary>
         /// One active bar. Screen/GUI Y grows downward, so "up" is smaller Y.
@@ -71,18 +71,13 @@ namespace TwilightInputOverlay
         private Dictionary<int, Rain> _rains = new Dictionary<int, Rain>();
 
         // ── Debug logging (SettingsModel.DebugInfo) ───────────────────────
-        // When on, per-second stats are logged to the BepInEx log: concurrent
-        // bar count and tallest bar (px), the rounded-rect caches' call / bake
-        // rates (a bake allocates a Texture2D + Color32[]; bakes are the
-        // full-size fill masks, capBakes the bar end caps), the cache sizes,
-        // and the managed-memory trend. In steady state bakes and capBakes
-        // should both be ~0 — a sustained nonzero rate means something is
-        // re-baking every frame, the first thing to check on a memory report.
+        // Log bar counts and the rate of HUD and rain mask creation. A held
+        // bar at full height reuses its existing mask.
         private float _debugTimer;
         private int _debugMaxBars;
         private float _debugMaxBarHeight;
         private int _debugBakeStart;
-        private int _debugCapBakeStart;
+        private int _debugRainBakeStart;
         private long _debugLastMem;
         private bool _wasDebug;
 
@@ -104,7 +99,7 @@ namespace TwilightInputOverlay
                 _debugMaxBars = 0;
                 _debugMaxBarHeight = 0f;
                 _debugBakeStart = RoundedRectTextureCache.FillBakes;
-                _debugCapBakeStart = RoundedRectTextureCache.EndCapBakes;
+                _debugRainBakeStart = RainBarTextureCache.Bakes;
                 _wasDebug = false;
             }
             else if (!_wasDebug)
@@ -187,21 +182,21 @@ namespace TwilightInputOverlay
                     _debugMaxBarHeight, bound, s.RainingHeight, s.RainingGap, s.Scale));
 
             int bakes = RoundedRectTextureCache.FillBakes - _debugBakeStart;
-            int capBakes = RoundedRectTextureCache.EndCapBakes - _debugCapBakeStart;
+            int rainBakes = RainBarTextureCache.Bakes - _debugRainBakeStart;
             long mem = System.GC.GetTotalMemory(false);
             long delta = mem - _debugLastMem;
             Plugin.Logger.LogInfo(string.Format(
-                "[RainingKeys] 1s: bars(max)={0} barH(max)={1:0.##}px regionH={2:0.##}px fillTexCalls={3} bakes={4}/s capBakes={5}/s cache={6} gcMem={7:0.0}MB delta={8:+#0.0;-#0.0}MB/s",
+                "[RainingKeys] 1s: bars(max)={0} barH(max)={1:0.##}px regionH={2:0.##}px fillTexCalls={3} bakes={4}/s rainBakes={5}/s cache={6} gcMem={7:0.0}MB delta={8:+#0.0;-#0.0}MB/s",
                 _debugMaxBars, _debugMaxBarHeight, regionHeightPx,
-                RoundedRectTextureCache.FillCalls, bakes, capBakes,
-                RoundedRectTextureCache.FillCacheCount + RoundedRectTextureCache.EndCapCacheCount,
+                RoundedRectTextureCache.FillCalls, bakes, rainBakes,
+                RoundedRectTextureCache.FillCacheCount + RainBarTextureCache.Count,
                 mem / (1024f * 1024f), delta / (1024f * 1024f)));
 
             _debugTimer = 0f;
             _debugMaxBars = 0;
             _debugMaxBarHeight = 0f;
             _debugBakeStart = RoundedRectTextureCache.FillBakes;
-            _debugCapBakeStart = RoundedRectTextureCache.EndCapBakes;
+            _debugRainBakeStart = RainBarTextureCache.Bakes;
             _debugLastMem = mem;
         }
 
@@ -276,13 +271,13 @@ namespace TwilightInputOverlay
             var row = s.Rows[0];
             float rowWidth = RowWidth(row, cell, spacing);
             float regionHeight = Mathf.Max(1f, s.RainingHeight * s.Scale);
-            float regionBottom = rowY - Mathf.Max(0f, s.RainingGap * s.Scale);
+            float regionBottom = RainBarGeometry.RegionBottom(rowY, s.RainingGap * s.Scale);
             var region = new Rect(s.OffsetX, regionBottom - regionHeight, rowWidth, regionHeight);
             if (region.width <= 0f || region.height <= 0f)
                 return;
 
             float fixedWidth = s.RainingWidth > 0f ? Mathf.Max(1f, s.RainingWidth * s.Scale) : 0f;
-            int radius = Mathf.Max(0, Mathf.RoundToInt(s.RainingRadius * s.Scale));
+            float radius = s.RainingRadius * s.Scale;
 
             Color prev = GUI.color;
             GUI.BeginGroup(region);
@@ -304,18 +299,17 @@ namespace TwilightInputOverlay
                             // half bar is half the width and the two halves stay adjacent,
                             // their seam at the key's centre (auto width = key half,
                             // which gives the same result as before).
-                            float halfW = fixedWidth > 0f ? fixedWidth * 0.5f : w * 0.5f;
-                            float keyCenter = cx + w * 0.5f;
+                            float halfW = RainBarGeometry.HalfWidth(fixedWidth > 0f ? fixedWidth : w);
                             if (_rains.TryGetValue(SlotOf(e, 0), out left))
-                                DrawBars(left, keyCenter - halfW * 0.5f, halfW, radius, regionTop);
+                                DrawBars(left, RainBarGeometry.Center(cx, w, halfW, -1), halfW, radius, regionTop);
                             if (_rains.TryGetValue(SlotOf(e, 1), out right))
-                                DrawBars(right, keyCenter + halfW * 0.5f, halfW, radius, regionTop);
+                                DrawBars(right, RainBarGeometry.Center(cx, w, halfW, 1), halfW, radius, regionTop);
                         }
                         else
                         {
                             Rain rain;
                             if (_rains.TryGetValue(SlotOf(e, -1), out rain))
-                                DrawBars(rain, cx + w * 0.5f, fixedWidth > 0f ? fixedWidth : w, radius, regionTop);
+                                DrawBars(rain, RainBarGeometry.Center(cx, w, w, 0), fixedWidth > 0f ? fixedWidth : w, radius, regionTop);
                         }
                     }
                     cx += w;
@@ -330,60 +324,19 @@ namespace TwilightInputOverlay
             }
         }
 
-        /// <summary>Draw one slot's bars centered at <paramref name="centerX"/>
-        /// (region-local x), clipped to the region by the enclosing BeginGroup.
-        /// <paramref name="regionTop"/> is measured from the region's bottom edge, in GUI
-        /// Y; the group draws relative to the region's top edge.
-        /// Rounded bars are drawn as three non-overlapping bands — a rounded
-        /// top cap, a plain whiteTexture middle and a rounded bottom cap — so
-        /// the rounded-corner texture is baked once per (width, radius) instead
-        /// of once per frame per bar height; per-frame height changes only move
-        /// the caps. The bands tile into the exact silhouette of the old single
-        /// per-height texture (same ShapeCoverage arcs, same radius clamping),
-        /// and because they never overlap they never double-blend even with a
-        /// semi-transparent bar colour.</summary>
         [HideFromIl2Cpp]
-        private void DrawBars(Rain rain, float centerX, float width, int radius, float regionTop)
+        private void DrawBars(Rain rain, float centerX, float width, float radius, float regionTop)
         {
-            var bars = rain.Bars;
-            for (int i = 0; i < bars.Count; i++)
+            foreach (var bar in rain.Bars)
             {
-                var bar = bars[i];
-                float h = bar.BottomY - bar.TopY;
-                if (h <= 0f) continue;
-                float top = bar.TopY - regionTop;
-                float x = centerX - width * 0.5f;
+                float height = bar.BottomY - bar.TopY;
+                if (height <= 0f) continue;
+                var rect = new Rect(centerX - width * 0.5f, bar.TopY - regionTop, width, height);
 
-                if (radius <= 0)
-                {
-                    GUI.DrawTexture(new Rect(x, top, width, h), Texture2D.whiteTexture);
-                    continue;
-                }
-
-                // Same clamping as RoundedRectTextureCache.ClampRadius so the
-                // geometry matches a full rounded rect exactly.
-                int wInt = Mathf.Max(1, Mathf.RoundToInt(width));
-                int hInt = Mathf.FloorToInt(h);
-                int rad = Mathf.Max(0, Mathf.Min(radius, Mathf.Min(wInt, hInt) / 2));
-                if (rad <= 0)
-                {
-                    GUI.DrawTexture(new Rect(x, top, width, h), Texture2D.whiteTexture);
-                    continue;
-                }
-
-                var topCap = RoundedRectTextureCache.GetEndCap(wInt, rad, true);
-                var bottomCap = RoundedRectTextureCache.GetEndCap(wInt, rad, false);
-                if (topCap == null || bottomCap == null)
-                {
-                    GUI.DrawTexture(new Rect(x, top, width, h), Texture2D.whiteTexture);
-                    continue;
-                }
-
-                float midH = h - 2 * rad;
-                if (midH > 0f)
-                    GUI.DrawTexture(new Rect(x, top + rad, width, midH), Texture2D.whiteTexture);
-                GUI.DrawTexture(new Rect(x, top, width, rad), topCap);
-                GUI.DrawTexture(new Rect(x, top + h - rad, width, rad), bottomCap);
+                // Draw the complete mask once. BeginGroup clips the resulting
+                // shape without stretching or adding a new rounded edge.
+                var mask = RainBarTextureCache.Get(width, height, radius);
+                GUI.DrawTexture(rect, mask != null ? mask : Texture2D.whiteTexture);
             }
         }
 

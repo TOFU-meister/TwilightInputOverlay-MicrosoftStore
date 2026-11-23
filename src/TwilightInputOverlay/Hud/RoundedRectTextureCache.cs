@@ -39,35 +39,12 @@ namespace TwilightInputOverlay
             public int BorderWidth;
         }
 
-        // One rounded "end" of a bar: width x radius with the corners of only
-        // one edge rounded. Used by RainingKeysOverlay so a growing bar never
-        // re-bakes a full-size texture every frame (see BuildEndCap).
-        private struct EndCapKey
-        {
-            public int Width;
-            public int Radius;
-            public bool Top;
-        }
-
         private static readonly Dictionary<FillMaskKey, Texture2D> FillMaskCache = new Dictionary<FillMaskKey, Texture2D>();
         private static readonly Dictionary<SplitFillKey, Texture2D> SplitFillCache = new Dictionary<SplitFillKey, Texture2D>();
         private static readonly Dictionary<BorderMaskKey, Texture2D> BorderMaskCache = new Dictionary<BorderMaskKey, Texture2D>();
-        private static readonly Dictionary<EndCapKey, Texture2D> EndCapCache = new Dictionary<EndCapKey, Texture2D>();
-
-        // Diagnostics counters for the Raining Keys debug logging: how often the
-        // fill-mask cache is asked for a texture vs. how often it actually bakes
-        // a new one (a bake is a Texture2D + Color32[] allocation). A high
-        // bake-per-second rate while the HUD is static means something is
-        // re-baking every frame, which is the first thing to check on a memory
-        // growth report. EndCapCalls/EndCapBakes track the Raining bar end caps
-        // the same way; both should stay ~0 in steady state.
         public static int FillCalls;
         public static int FillBakes;
-        public static int EndCapCalls;
-        public static int EndCapBakes;
         public static int FillCacheCount => FillMaskCache.Count;
-        public static int EndCapCacheCount => EndCapCache.Count;
-
         /// <summary>White fill mask; tint with GUI.color to apply the actual fill color.</summary>
         public static Texture2D GetFillMask(int width, int height, int radius)
         {
@@ -143,42 +120,12 @@ namespace TwilightInputOverlay
             return tex;
         }
 
-        /// <summary>White rounded end cap for a bar: <paramref name="width"/> x
-        /// <paramref name="radius"/> pixels with the corners of one edge rounded
-        /// and the opposite edge straight. The top and bottom caps of a bar are
-        /// built from the same reference shape so they tile with a plain middle
-        /// band into an exact rounded rectangle — see
-        /// RainingKeysOverlay.DrawBars. The cap is baked once per width/radius,
-        /// so a bar whose height changes every frame never re-bakes.</summary>
-        public static Texture2D GetEndCap(int width, int radius, bool top)
-        {
-            EndCapCalls++;
-            width = Mathf.Max(1, width);
-            radius = Mathf.Max(0, Mathf.Min(radius, width / 2));
-
-            if (!OverlayTexture.CanBake(width, radius)) return null;
-
-            var key = new EndCapKey { Width = width, Radius = radius, Top = top };
-            Texture2D tex;
-            if (EndCapCache.TryGetValue(key, out tex))
-                return tex;
-
-            if (EndCapCache.Count > 64)
-                Release(EndCapCache);
-            tex = BuildEndCap(width, radius, top);
-            EndCapBakes++;
-            if (tex != null) EndCapCache[key] = tex;
-            return tex;
-        }
-
         internal static void ReleaseKeyMasks()
         {
             Release(FillMaskCache);
             Release(SplitFillCache);
             Release(BorderMaskCache);
         }
-
-        internal static void ReleaseEndCaps() => Release(EndCapCache);
 
         private static void Release<TKey>(Dictionary<TKey, Texture2D> cache)
         {
@@ -261,38 +208,6 @@ namespace TwilightInputOverlay
             }
 
             return OverlayTexture.Upload(width, height, pixels);
-        }
-
-        /// <summary>The top or bottom half of a 2*radius-high rounded rect:
-        /// pixels are sampled from ShapeCoverage's reference shape so the arc
-        /// geometry matches BuildFillMask exactly, and the inner edge (the
-        /// straight one) lands at full coverage so the cap tiles seamlessly with
-        /// the plain middle band.
-        /// The sample rows are MIRRORED on purpose: in IMGUI a texture's first
-        /// pixels row renders at the BOTTOM of the drawn rect (all previous
-        /// masks in this plugin are vertically symmetric, so they never exposed
-        /// this), so the rounded edge is placed on the row that ends up at the
-        /// cap's outer end — the top cap's rounded edge at the rect's top, the
-        /// bottom cap's at the rect's bottom.</summary>
-        private static Texture2D BuildEndCap(int width, int radius, bool top)
-        {
-            int refHeight = 2 * radius; // reference rounded-rect height
-            var pixels = new Color32[width * Mathf.Max(1, radius)];
-            for (int y = 0; y < radius; y++)
-            {
-                // Reference rows run top-down: [0, radius) rounded top, then
-                // [radius, 2*radius) rounded bottom. Map them mirrored so the
-                // rounded edge lands on the row IMGUI renders at the outer end.
-                int fy = top ? (radius - 1 - y) : (2 * radius - 1 - y);
-                for (int x = 0; x < width; x++)
-                {
-                    float coverage;
-                    bool inside = ShapeCoverage(x + 0.5f, fy + 0.5f, width, refHeight, radius, out coverage);
-                    pixels[y * width + x] = OverlayTexture.Pixel(new Color(1f, 1f, 1f, inside ? coverage : 0f));
-                }
-            }
-
-            return OverlayTexture.Upload(width, radius, pixels);
         }
 
         private static bool ShapeCoverage(float px, float py, int width, int height, int radius, out float coverage)

@@ -118,7 +118,6 @@ namespace TwilightInputOverlay
         {
             try
             {
-                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filePath));
                 var sb = new StringBuilder();
                 if (!string.IsNullOrEmpty(headerComment))
                 {
@@ -134,11 +133,31 @@ namespace TwilightInputOverlay
                         sb.Append(kv.Key).Append(" = ").Append(kv.Value).Append('\n');
                     sb.Append('\n');
                 }
-                File.WriteAllText(filePath, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                byte[] bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                WriteAtomically(filePath, stream => stream.Write(bytes, 0, bytes.Length));
             }
             catch (Exception ex)
             {
                 Plugin.Logger.LogWarning($"TwilightInputOverlay: failed to write {System.IO.Path.GetFileName(filePath)}: {ex.Message}");
+            }
+        }
+
+        internal static void WriteAtomically(string destination, Action<Stream> write)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            string temporary = destination + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    write(stream);
+                    stream.Flush(flushToDisk: true);
+                }
+                File.Move(temporary, destination, overwrite: true);
+            }
+            finally
+            {
+                File.Delete(temporary);
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using TwilightInputOverlay;
 
 const string Plugin = "TwilightInputOverlay-MicrosoftStore";
@@ -22,6 +23,13 @@ static void Put(string root, string file, string text)
     Directory.CreateDirectory(Path.GetDirectoryName(path));
     File.WriteAllText(path, text);
 }
+
+string projectPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+    "../../../../../src/TwilightInputOverlay/TwilightInputOverlay.csproj"));
+var projectVersion = System.Xml.Linq.XDocument.Load(projectPath).Root.Element("PropertyGroup").Element("Version");
+Check((string)projectVersion == PluginInfo.PLUGIN_VERSION, "Runtime and project versions agree");
+Check(System.Text.RegularExpressions.Regex.IsMatch(PluginInfo.PLUGIN_VERSION,
+    @"^0\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-pre$"), "Store version format");
 
 try
 {
@@ -56,9 +64,38 @@ try
         && File.ReadAllText(Path.Combine(retryRoot, "settings.ini")) == "scale = 1.2345678",
         "Retry imports latest fallback settings");
     Check(warnings.Count == 3, "Each fallback logged");
-    Console.WriteLine("12 Store data checks passed.");
+    string atomicPath = Path.Combine(temp, "atomic", "settings.ini");
+    Put(Path.GetDirectoryName(atomicPath), "settings.ini", "original");
+    bool threw = false;
+    try
+    {
+        PersistenceService.WriteAtomically(atomicPath, stream =>
+        {
+            stream.WriteByte(1);
+            throw new IOException("Simulated interrupted write");
+        });
+    }
+    catch (IOException) { threw = true; }
+    Check(threw && File.ReadAllText(atomicPath) == "original", "Interrupted save keeps existing file");
+    Check(!Directory.EnumerateFiles(Path.GetDirectoryName(atomicPath), "*.tmp-*").Any(), "Staging file cleaned");
+    PersistenceService.WriteAtomically(atomicPath, stream => stream.WriteByte((byte)'a'));
+    Check(File.ReadAllText(atomicPath) == "a", "Successful save replaces existing file");
+
+    Console.WriteLine("17 Store data and version checks passed.");
 }
 finally
 {
     Directory.Delete(temp, recursive: true);
+}
+
+namespace TwilightInputOverlay
+{
+    internal static class Plugin
+    {
+        internal static TestLogger Logger { get; } = new();
+    }
+    internal sealed class TestLogger
+    {
+        internal void LogWarning(string message) => Console.WriteLine(message);
+    }
 }

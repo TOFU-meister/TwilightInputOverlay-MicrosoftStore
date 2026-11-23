@@ -6,6 +6,12 @@ Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグ
 - IL2CPP のコンポーネント起動と IMGUI の互換処理は [HSRTimer Microsoft Store](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/tree/0a5ba0d708aa0bc55559ebc6ed12c2a2a4d4bf70) を参考にしています。
 - [MIT License](LICENSE) · Copyright (c) 2026 TwilightCup
 
+現在の開発版は **0.1.0-pre** です。
+
+## バージョン管理
+
+Store 版は `0.x.x-pre` を使い、各プラグインで独立して進めます。先頭の `0` と末尾の `-pre` はプレリリース期間中固定です。小機能、バグ修正、UI 調整は3番目を進めます。大きな機能追加、仕様変更、大規模な修正は2番目を進め、3番目を `0` に戻します。バージョン更新時は `PluginInfo.cs` と `.csproj` の番号をそろえます。公開時のタグは `v<version>`、配布 ZIP は `TwilightInputOverlay-MicrosoftStore-v<version>.zip` とします。
+
 ## Windows PowerShell でのビルド
 
 .NET 6 SDK をインストールし、対象のゲームを BepInEx 6 IL2CPP で一度起動して終了します。対象ゲームの同じインストールから `BepInEx/core` と、自動生成された `BepInEx/interop` を参照します。
@@ -36,7 +42,7 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 - 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
 - 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
 - INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。
-- HSRTimer Microsoft Store `0.1.0-pre.1` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
+- HSRTimer Microsoft Store `0.1.1-pre` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
 
 ## 実機確認
 

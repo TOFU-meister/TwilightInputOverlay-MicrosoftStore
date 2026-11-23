@@ -189,7 +189,8 @@ namespace TwilightInputOverlay
 
             try
             {
-                File.Copy(src, dst, true);
+                using var snapshot = File.OpenRead(src);
+                PersistenceService.WriteAtomically(dst, snapshot.CopyTo);
             }
             catch (Exception ex)
             {

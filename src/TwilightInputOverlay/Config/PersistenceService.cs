@@ -41,10 +41,15 @@ namespace TwilightInputOverlay
     /// </summary>
     public static class PersistenceService
     {
-        /// <summary>The Store port uses a per-user directory outside the game installation.</summary>
-        public static string PluginDir => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create),
-            "TwilightInputOverlay-MicrosoftStore");
+        public static string PluginDir { get; private set; }
+
+        internal static void InitialiseDataRoot()
+        {
+            PluginDir = StoreDataRoot.Select(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify),
+                message => Plugin.Logger.LogWarning(message));
+        }
 
         public static string LangDir => System.IO.Path.Combine(PluginDir, "lang");
 

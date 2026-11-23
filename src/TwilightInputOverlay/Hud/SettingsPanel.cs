@@ -24,7 +24,7 @@ namespace TwilightInputOverlay
         {
             var cfg = ConfigService.Instance;
             if (cfg == null) return;
-            if (Input.GetKeyDown(cfg.Settings.PanelKey))
+            if (!PanelTextInput.IsEditing && Input.GetKeyDown(cfg.Settings.PanelKey))
                 Toggle();
         }
 
@@ -86,6 +86,7 @@ namespace TwilightInputOverlay
         [HideFromIl2Cpp]
         private void ReportDrawFailure(System.Exception error)
         {
+            PanelTextInput.Cancel();
             _drawFailed = true;
             Plugin.Logger.LogWarning($"Settings drawing stopped until reopened: {error}");
         }
@@ -106,6 +107,7 @@ namespace TwilightInputOverlay
             if (GUILayout.Button(loc.Get("PANEL_CLOSE"), PanelStyles.Button))
             {
                 cfg.SaveSettings();
+                PanelContent.ResetTransientState();
                 _visible = false;
             }
             GUILayout.EndHorizontal();

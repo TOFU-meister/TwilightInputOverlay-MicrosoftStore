@@ -13,6 +13,7 @@ namespace TwilightInputOverlay
         public override void Load()
         {
             Logger = Log;
+            PersistenceService.InitialiseDataRoot();
             Logger.LogInfo($"Loading {PluginInfo.PLUGIN_NAME} v{PluginInfo.PLUGIN_VERSION}. Settings: {PersistenceService.PluginDir}");
 
             var config = new ConfigService();

@@ -168,27 +168,33 @@ namespace TwilightInputOverlay
             Section(loc.Get("PANEL_HUD"));
             s.ShowHud = Toggle(loc.Get("SETTINGS_SHOW_HUD"), s.ShowHud);
             s.ShowKeyText = Toggle(loc.Get("SETTINGS_SHOW_KEY_TEXT"), s.ShowKeyText);
-            s.KeyTextSize = Mathf.Clamp(SliderRow(loc.Get("SETTINGS_KEY_TEXT_SIZE"), s.KeyTextSize, 0.1f, 1.5f), 0.1f, 1.5f);
+            s.KeyTextSize = SliderRow("SETTINGS_KEY_TEXT_SIZE", loc.Get("SETTINGS_KEY_TEXT_SIZE"), s.KeyTextSize, 0.1f, 1.5f);
             s.KeyTextOffsetX = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_X"), s.KeyTextOffsetX, "0.##");
             s.KeyTextOffsetY = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_Y"), s.KeyTextOffsetY, "0.##");
             s.OffsetX = FloatFieldRow(loc.Get("PANEL_OFFSET_X"), s.OffsetX, "0.##");
             s.OffsetY = FloatFieldRow(loc.Get("PANEL_OFFSET_Y"), s.OffsetY, "0.##");
-            s.Scale = Mathf.Max(0.1f, SliderRow(loc.Get("PANEL_SCALE"), s.Scale, 0.1f, 3f));
+            s.Scale = SliderRow("PANEL_SCALE", loc.Get("PANEL_SCALE"), s.Scale, 0.1f, 3f);
 
             Section(loc.Get("PANEL_ANIMATION"));
-            s.FadeSpeed = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_FADE_SPEED"), s.FadeSpeed, 0f, 20f));
+            s.FadeSpeed = SliderRow("SETTINGS_FADE_SPEED", loc.Get("SETTINGS_FADE_SPEED"), s.FadeSpeed, 0f, 20f);
 
             Section(loc.Get("PANEL_GRID"));
-            s.Spacing = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_SPACING"), s.Spacing, 0f, 24f));
+            s.Spacing = SliderRow("SETTINGS_SPACING", loc.Get("SETTINGS_SPACING"), s.Spacing, 0f, 24f);
 
-            s.CornerRadius = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_CORNER_RADIUS"), s.CornerRadius, 0f, 24f));
+            s.CornerRadius = SliderRow("SETTINGS_CORNER_RADIUS", loc.Get("SETTINGS_CORNER_RADIUS"), s.CornerRadius, 0f, 24f);
 
             Section(loc.Get("PANEL_STYLE"));
             GUILayout.BeginHorizontal();
-            if (GUILayout.Toggle(_editingState == 0, loc.Get("PANEL_STATE_IDLE"), PanelStyles.Button))
+            if (GUILayout.Toggle(_editingState == 0, loc.Get("PANEL_STATE_IDLE"), PanelStyles.Button) && _editingState != 0)
+            {
+                PanelTextInput.Cancel();
                 _editingState = 0;
-            if (GUILayout.Toggle(_editingState == 1, loc.Get("PANEL_STATE_PRESSED"), PanelStyles.Button))
+            }
+            if (GUILayout.Toggle(_editingState == 1, loc.Get("PANEL_STATE_PRESSED"), PanelStyles.Button) && _editingState != 1)
+            {
+                PanelTextInput.Cancel();
                 _editingState = 1;
+            }
             GUILayout.EndHorizontal();
 
             ButtonStyle style = _editingState == 0 ? s.Idle : s.Pressed;
@@ -220,10 +226,10 @@ namespace TwilightInputOverlay
             s.CursorRegionWidth = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_W"), s.CursorRegionWidth, "0.##"));
             s.CursorRegionHeight = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_H"), s.CursorRegionHeight, "0.##"));
             ColorRow(loc, "PANEL_CURSOR_REGION_COLOR", s.CursorRegionColor, c => s.CursorRegionColor = c);
-            s.CursorRadius = Mathf.Max(1f, SliderRow(loc.Get("SETTINGS_CURSOR_RADIUS"), s.CursorRadius, 2f, 64f));
-            s.CursorSensitivity = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_CURSOR_SENSITIVITY"), s.CursorSensitivity, 0.1f, 10f));
-            s.TrailMaxStretch = Mathf.Max(1f, SliderRow(loc.Get("SETTINGS_TRAIL_STRETCH"), s.TrailMaxStretch, 1f, 4f));
-            s.TrailResponse = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_TRAIL_RESPONSE"), s.TrailResponse, 0f, 30f));
+            s.CursorRadius = SliderRow("SETTINGS_CURSOR_RADIUS", loc.Get("SETTINGS_CURSOR_RADIUS"), s.CursorRadius, 2f, 64f);
+            s.CursorSensitivity = SliderRow("SETTINGS_CURSOR_SENSITIVITY", loc.Get("SETTINGS_CURSOR_SENSITIVITY"), s.CursorSensitivity, 0.1f, 10f);
+            s.TrailMaxStretch = SliderRow("SETTINGS_TRAIL_STRETCH", loc.Get("SETTINGS_TRAIL_STRETCH"), s.TrailMaxStretch, 1f, 4f);
+            s.TrailResponse = SliderRow("SETTINGS_TRAIL_RESPONSE", loc.Get("SETTINGS_TRAIL_RESPONSE"), s.TrailResponse, 0f, 30f);
             ColorRow(loc, "PANEL_CURSOR_COLOR", s.CursorColor, c => s.CursorColor = c);
         }
 
@@ -246,7 +252,7 @@ namespace TwilightInputOverlay
             s.RainingGap = IntFieldRow(loc.Get("SETTINGS_RAINING_GAP"), s.RainingGap, "raining:gap", 0, 200);
             s.RainingSpeed = IntFieldRow(loc.Get("SETTINGS_RAINING_SPEED"), s.RainingSpeed, "raining:speed", 0, 1000);
             s.RainingWidth = Mathf.Max(0f, FloatFieldRow(loc.Get("SETTINGS_RAINING_WIDTH"), s.RainingWidth, "0.##"));
-            s.RainingRadius = Mathf.Max(0f, SliderRow(loc.Get("SETTINGS_RAINING_RADIUS"), s.RainingRadius, 0f, 24f));
+            s.RainingRadius = SliderRow("SETTINGS_RAINING_RADIUS", loc.Get("SETTINGS_RAINING_RADIUS"), s.RainingRadius, 0f, 24f);
             ColorRow(loc, "PANEL_RAINING_COLOR", s.RainingColor, c => s.RainingColor = c);
         }
 
@@ -496,10 +502,28 @@ namespace TwilightInputOverlay
             return GUILayout.Toggle(value, label, PanelStyles.Toggle);
         }
 
-        private static float SliderRow(string label, float value, float min, float max)
+        private static float SliderRow(string key, string label, float value, float min, float max)
         {
-            GUILayout.Label(label + ": " + value.ToString("0.##"), PanelStyles.Value);
-            return GUILayout.HorizontalSlider(value, min, max);
+            GUILayout.Label(label, PanelStyles.Value);
+            GUILayout.BeginHorizontal();
+            float start = Mathf.Clamp(value, min, max);
+            float slider = GUILayout.HorizontalSlider(start, min, max);
+            if (slider != start)
+            {
+                value = slider;
+                PanelTextInput.Cancel(key);
+            }
+
+            string display = value.ToString("R", CultureInfo.InvariantCulture);
+            string text = PanelTextInput.Draw(key, display, PanelStyles.TextField, GUILayout.Width(104));
+            GUILayout.EndHorizontal();
+            if (text == display) return value;
+            float number = SettingsModel.ParseFloat(text, float.NaN);
+            if (!float.IsFinite(number)
+                && (!float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out number)
+                    || !float.IsFinite(number)))
+                return value;
+            return Mathf.Clamp(number, min, max);
         }
 
         private static float FloatFieldRow(string label, float value, string format = "F0")
@@ -582,25 +606,16 @@ namespace TwilightInputOverlay
             GUILayout.Label(loc.Get("PANEL_COLOR_HEX"), PanelStyles.Label);
             GUILayout.EndHorizontal();
 
-            // RGBA sliders.
-            GUILayout.BeginHorizontal();
-            float r = LabeledSlider("R", c.r); GUILayout.Space(4);
-            float g = LabeledSlider("G", c.g); GUILayout.Space(4);
-            float b = LabeledSlider("B", c.b); GUILayout.Space(4);
-            float a = LabeledSlider("A", c.a);
-            GUILayout.EndHorizontal();
+            float r = SliderRow(bufKey + ":r", "R", c.r, 0f, 1f);
+            float g = SliderRow(bufKey + ":g", "G", c.g, 0f, 1f);
+            float b = SliderRow(bufKey + ":b", "B", c.b, 0f, 1f);
+            float a = SliderRow(bufKey + ":a", "A", c.a, 0f, 1f);
             if (r != c.r || g != c.g || b != c.b || a != c.a)
             {
                 Color next = new Color(r, g, b, a);
                 set(next);
                 ColorHexBuf[bufKey] = ColorUtil.ToHex(next);
             }
-        }
-
-        private static float LabeledSlider(string label, float value)
-        {
-            GUILayout.Label(label, GUILayout.Width(14));
-            return GUILayout.HorizontalSlider(value, 0f, 1f, GUILayout.Width(70));
         }
 
         // ── keybind capture + row ──
@@ -616,7 +631,7 @@ namespace TwilightInputOverlay
         /// </summary>
         private static void CapturePendingRebind()
         {
-            if (_pendingRebind == null) return;
+            if (_pendingRebind == null || PanelTextInput.IsEditing) return;
 
             if (Event.current.type == EventType.KeyDown)
             {
@@ -700,6 +715,7 @@ namespace TwilightInputOverlay
                 }
                 else
                 {
+                    PanelTextInput.Cancel();
                     _pendingRebind = id;
                     _pendingApply = set;
                     _pendingAllowMouse = allowMouse;

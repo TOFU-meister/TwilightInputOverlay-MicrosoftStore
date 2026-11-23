@@ -31,8 +31,8 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 ## 設定と対応範囲
 
 - HUD はキーの押下状態を表示します。キー配置、二分割キー、キーの幅、ラベルのサイズ・位置、色、拡大率、フェードを設定できます。
-- 独立設定画面は既定で `Home` です。HSRTimer と同じキーで両方の画面が開く場合は、どちらかの設定キーを変更してください。数値や文字は対象をクリックし、入力後に Enter で適用、Esc で取消できます。
-- 設定先は `%LOCALAPPDATA%\TwilightInputOverlay-MicrosoftStore` です。従来の設定を引き継ぐ場合は、ゲーム終了中に旧環境の `BepInEx\config\TwilightInputOverlay` から `settings.ini`、`presets`、`lang` をコピーします。プリセット読み込み時は現在の設定画面キーと言語を維持します。
+- 独立設定画面は既定で `Home` です。HSRTimer と同じキーで両方の画面が開く場合は、どちらかの設定キーを変更してください。各スライダーの右に数値欄があります。クリックして入力し、Enter で確定、Esc で取り消します。範囲外の数値はスライダーの上下限に収めます。色の保存精度は従来の RGBA 各8ビットです。
+- 設定先は Windows が返すドキュメントフォルダーの `TwilightInputOverlay-MicrosoftStore` です。初回は旧 `%LOCALAPPDATA%\TwilightInputOverlay-MicrosoftStore` の `settings.ini`、`presets`、`lang` を、移行先に同名ファイルがない場合にコピーします。旧データはそのまま残り、Documents が利用できない場合は LocalAppData を使用します。実際の保存先は起動ログに表示されます。
 - 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
 - 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
 - INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。

@@ -8,6 +8,13 @@ namespace TwilightInputOverlay
         private static string _draft;
         private static bool _replaceOnType;
 
+        internal static bool IsEditing => _activeField != null;
+
+        internal static void Cancel(string key)
+        {
+            if (_activeField == key) Cancel();
+        }
+
         internal static void Cancel()
         {
             _activeField = null;
@@ -68,13 +75,9 @@ namespace TwilightInputOverlay
                             if (!string.IsNullOrEmpty(pasted))
                                 Append(pasted.Replace("\r", "").Replace("\n", "").Replace("\t", ""));
                         }
-                        else
-                            return value;
                     }
                     else if (!char.IsControl(input.character))
                         Append(input.character.ToString());
-                    else
-                        return value;
                     break;
             }
             input.Use();

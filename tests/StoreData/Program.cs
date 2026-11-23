@@ -1,0 +1,64 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using TwilightInputOverlay;
+
+const string Plugin = "TwilightInputOverlay-MicrosoftStore";
+string temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+string documents = Path.Combine(temp, "Documents");
+string local = Path.Combine(temp, "Local");
+string legacy = Path.Combine(local, Plugin);
+string preferred = Path.Combine(documents, Plugin);
+var warnings = new List<string>();
+
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+static void Put(string root, string file, string text)
+{
+    string path = Path.Combine(root, file);
+    Directory.CreateDirectory(Path.GetDirectoryName(path));
+    File.WriteAllText(path, text);
+}
+
+try
+{
+    Put(legacy, "settings.ini", "scale = 1.1234567");
+    Put(legacy, "presets/Custom/settings.ini", "preset");
+    Put(legacy, "lang/custom.txt", "translation");
+    Put(preferred, "settings.ini", "existing");
+    Check(StoreDataRoot.Select(documents, local, warnings.Add) == preferred, "Documents selected");
+    Check(File.ReadAllText(Path.Combine(preferred, "settings.ini")) == "existing", "Existing settings win");
+    Check(File.ReadAllText(Path.Combine(preferred, "lang/custom.txt")) == "translation", "Language copied");
+    string preset = Path.Combine(preferred, "presets/Custom/settings.ini");
+    Check(File.ReadAllText(preset) == "preset", "Preset copied");
+    Check(File.ReadAllText(Path.Combine(legacy, "settings.ini")) == "scale = 1.1234567", "Source retained");
+    File.Delete(preset);
+    Check(StoreDataRoot.Select(documents, local, warnings.Add) == preferred && !File.Exists(preset),
+        "Restart does not restore a deleted preset");
+
+    Check(StoreDataRoot.Select(Path.Combine(temp, "missing"), local, warnings.Add) == legacy,
+        "Missing Documents uses fallback");
+    string blockedDocuments = Path.Combine(temp, "blocked");
+    Put(blockedDocuments, Plugin, "file blocks directory creation");
+    Check(StoreDataRoot.Select(blockedDocuments, local, warnings.Add) == legacy, "Unwritable root uses fallback");
+
+    string retryDocuments = Path.Combine(temp, "retry");
+    string retryRoot = Path.Combine(retryDocuments, Plugin);
+    Put(retryRoot, "presets", "file blocks migration");
+    Check(StoreDataRoot.Select(retryDocuments, local, warnings.Add) == legacy, "Migration failure uses fallback");
+    Check(!File.Exists(Path.Combine(retryRoot, "settings.ini")), "Partial copy rolled back");
+    File.Delete(Path.Combine(retryRoot, "presets"));
+    Put(legacy, "settings.ini", "scale = 1.2345678");
+    Check(StoreDataRoot.Select(retryDocuments, local, warnings.Add) == retryRoot
+        && File.ReadAllText(Path.Combine(retryRoot, "settings.ini")) == "scale = 1.2345678",
+        "Retry imports latest fallback settings");
+    Check(warnings.Count == 3, "Each fallback logged");
+    Console.WriteLine("12 Store data checks passed.");
+}
+finally
+{
+    Directory.Delete(temp, recursive: true);
+}

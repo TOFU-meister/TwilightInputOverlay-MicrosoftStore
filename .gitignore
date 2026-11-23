@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# IDE / user files
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+
+# Machine-local build references
+Directory.Build.user.props
+
+# OS
+.DS_Store
+
+# Logs
+*.log

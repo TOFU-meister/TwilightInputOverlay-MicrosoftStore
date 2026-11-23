@@ -1,0 +1,130 @@
+__LANG_NAME__:English
+
+# ===== Panel general =====
+TAB_TITLE:Input Overlay
+PANEL_TITLE:TwilightInputOverlay
+PANEL_SAVE:Save
+PANEL_CLOSE:Close
+PANEL_FOOTER:Changes apply immediately and are saved on close.
+
+# ===== Sub-pages =====
+TAB_KEY_OVERLAY:Key Overlay
+TAB_MOUSE_OVERLAY:Mouse Overlay
+TAB_RAINING_KEYS:Raining Keys
+TAB_KEY_LAYOUT:Key Layout
+PANEL_BACK:← Back
+PANEL_SELECT_PAGE:Choose a section to configure:
+
+# ===== Key layout =====
+KEY_LAYOUT_ROWS:Rows
+KEY_LAYOUT_HINT:Rows stack top to bottom in the HUD; keys run left to right.
+KEY_LAYOUT_ROW:Row {0}
+KEY_LAYOUT_EMPTY_ROW:(empty)
+KEY_LAYOUT_ADD_ROW:Add row
+KEY_LAYOUT_DELETE_ROW:Delete row
+KEY_LAYOUT_KEYS:Keys
+KEY_LAYOUT_ADD_KEY:Add key
+KEY_LABEL:Display text
+KEY_LABEL_2:Second text
+KEY_BINDING:Key bind
+KEY_BINDING_2:Second key bind
+KEY_WIDTH:Width
+KEY_DUAL:Dual keybind
+KEY_BLANK:Set blank key
+KEY_BLANK_SHORT:(blank)
+KEY_DELETE:Delete key
+PANEL_CONFIRM_DELETE:Confirm delete
+PANEL_CANCEL:Cancel
+PANEL_MOVE_UP:Up
+PANEL_MOVE_DOWN:Down
+PANEL_PRESS_KEY_CANCEL:Press a key... (Esc cancels)
+
+# ===== General =====
+PANEL_GENERAL:General
+SETTINGS_PANEL_KEY:Settings Panel Key
+PANEL_PRESS_KEY:Press a key...
+SETTINGS_LANGUAGE:Language
+PANEL_RELOAD_LANGUAGE:Reload language files
+PANEL_LANG_SELECT_HINT:▼
+
+# ===== Presets =====
+SETTINGS_PRESET:Presets
+SETTINGS_PRESET_SELECT_HINT:[Click to select]
+SETTINGS_PRESET_NEW:New preset
+SETTINGS_PRESET_NEW_NAME:Preset name
+SETTINGS_PRESET_CONFIRM:OK
+SETTINGS_PRESET_CANCEL:Cancel
+SETTINGS_PRESET_LOAD:Load preset
+SETTINGS_PRESET_SAVE:Save preset
+SETTINGS_PRESET_DELETE:Delete preset
+SETTINGS_PRESET_DELETE_CONFIRM:Confirm delete
+SETTINGS_PRESET_EMPTY:Preset name cannot be empty.
+SETTINGS_PRESET_DUPLICATE:A preset with this name already exists.
+SETTINGS_PRESET_LOAD_FAILED:Failed to load the selected preset.
+SETTINGS_PRESET_SAVE_FAILED:Failed to save the selected preset.
+SETTINGS_PRESET_DELETE_FAILED:Failed to delete the selected preset.
+SETTINGS_PRESET_FAILED:Preset operation failed.
+
+# ===== HUD =====
+PANEL_HUD:HUD
+SETTINGS_SHOW_HUD:Show HUD
+SETTINGS_SHOW_KEY_TEXT:Show key text
+SETTINGS_KEY_TEXT_SIZE:Key Text Size
+SETTINGS_KEY_TEXT_OFFSET_X:Text Offset X
+SETTINGS_KEY_TEXT_OFFSET_Y:Text Offset Y
+PANEL_OFFSET_X:X Offset
+PANEL_OFFSET_Y:Y Offset
+PANEL_SCALE:Scale
+
+# ===== Animation =====
+PANEL_ANIMATION:Animation
+SETTINGS_FADE_SPEED:Fade Speed
+
+# ===== Grid =====
+PANEL_GRID:Key Grid
+SETTINGS_SPACING:Key Spacing
+SETTINGS_CORNER_RADIUS:Corner Radius
+
+# ===== Mouse cursor =====
+PANEL_CURSOR:Mouse Cursor
+SETTINGS_SHOW_CURSOR:Show cursor
+SETTINGS_SHOW_CURSOR_REGION:Show region
+SETTINGS_CURSOR_RAW_INPUT:Use raw mouse input (keeps moving at screen edges)
+SETTINGS_CURSOR_CLAMP:Clamp cursor inside region (stops at edge)
+SETTINGS_CURSOR_WRAP:Wrap to opposite edge (off: return to centre)
+PANEL_CURSOR_REGION_X:Region X (from right)
+PANEL_CURSOR_REGION_Y:Region Y (from bottom)
+PANEL_CURSOR_REGION_W:Region Width
+PANEL_CURSOR_REGION_H:Region Height
+PANEL_CURSOR_REGION_COLOR:Region Color
+SETTINGS_CURSOR_RADIUS:Cursor Size
+SETTINGS_CURSOR_SENSITIVITY:Cursor Sensitivity
+PANEL_CURSOR_COLOR:Cursor Color
+SETTINGS_TRAIL_STRETCH:Trail Max Length
+SETTINGS_TRAIL_RESPONSE:Trail Response
+
+# ===== Raining Keys =====
+PANEL_RAINING:Raining Keys
+SETTINGS_RAINING_ENABLED:Enable Raining Keys
+SETTINGS_RAINING_HINT:Applies to the top row of the key layout only.
+SETTINGS_RAINING_HEIGHT:Bar Area Height
+SETTINGS_RAINING_GAP:Bar Area Gap (from key tops)
+SETTINGS_RAINING_SPEED:Flow Speed
+SETTINGS_RAINING_WIDTH:Bar Width (0 = match key width)
+SETTINGS_RAINING_RADIUS:Bar Corner Radius
+PANEL_RAINING_COLOR:Bar Color
+
+# ===== Debug =====
+PANEL_DEBUG:Debug
+SETTINGS_DEBUG_INFO:Log Raining Keys debug stats (bars, texture cache, memory)
+
+# ===== Style =====
+PANEL_STYLE:Style
+PANEL_STATE_IDLE:Idle
+PANEL_STATE_PRESSED:Pressed
+PANEL_COLOR_TEXT:Text
+PANEL_COLOR_BORDER:Border
+PANEL_COLOR_FILL:Fill
+PANEL_COLOR_HEX:hex
+
+STORE_TEXT_INPUT_HINT:Click a value, type, then press Enter to apply or Escape to cancel.

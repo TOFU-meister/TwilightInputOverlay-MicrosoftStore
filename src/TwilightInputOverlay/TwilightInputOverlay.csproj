@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>TwilightInputOverlay</AssemblyName>
+    <Version>0.1.0-alpha.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <StoreCore Include="BepInEx.Core;BepInEx.Unity.IL2CPP;Il2CppInterop.Runtime" />
+    <StoreInterop Include="Il2Cppmscorlib;UnityEngine.CoreModule;UnityEngine.IMGUIModule;UnityEngine.InputLegacyModule;UnityEngine.TextRenderingModule" />
+    <Reference Include="@(StoreCore->'$(BepInExDir)/core/%(Identity).dll')" Private="false" />
+    <Reference Include="@(StoreInterop->'$(BepInExDir)/interop/%(Identity).dll')" Private="false" />
+    <None Include="../../LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="lang/en.txt" LogicalName="TwilightInputOverlay.lang.en.txt" />
+    <EmbeddedResource Include="lang/zh-Hans.txt" LogicalName="TwilightInputOverlay.lang.zh-Hans.txt" />
+  </ItemGroup>
+
+  <Target Name="CheckStoreReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(BepInExDir)' == ''" Text="Set BepInExDir to the Store game's BepInEx folder containing core and generated interop." />
+    <Error Condition="!Exists('$(BepInExDir)/core/%(StoreCore.Identity).dll')" Text="Missing core/%(StoreCore.Identity).dll in $(BepInExDir)." />
+    <Error Condition="!Exists('$(BepInExDir)/interop/%(StoreInterop.Identity).dll')" Text="Missing generated interop/%(StoreInterop.Identity).dll in $(BepInExDir)." />
+  </Target>
+</Project>

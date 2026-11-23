@@ -36,7 +36,7 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 - 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
 - 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
 - INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。
-- HSRTimer の「Input Overlay」タブ統合は第4段階です。独立ウィンドウを担当する `SettingsPanel` と設定内容を描く `PanelContent` は別クラスです。
+- HSRTimer Microsoft Store `0.1.0-pre.1` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
 
 ## 実機確認
 

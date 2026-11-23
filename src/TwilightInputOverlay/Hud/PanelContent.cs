@@ -53,6 +53,8 @@ namespace TwilightInputOverlay
         private static Action<KeyCode> _pendingApply;
         private static bool _pendingAllowMouse;
 
+        internal static bool CapturesInput => PanelTextInput.IsEditing || _pendingRebind != null;
+
         /// <summary>
         /// Reset transient UI state — the open sub-pages, the language dropdown,
         /// any pending key rebind and the editor buffers — so the standalone
@@ -77,6 +79,7 @@ namespace TwilightInputOverlay
             _presetNewName = "";
             _presetErrorKey = null;
             _presetNames = null; // re-read the list each time the panel opens
+            ColorHexBuf.Clear();
             LabelBuf.Clear();
             WidthBuf.Clear();
         }
@@ -185,17 +188,20 @@ namespace TwilightInputOverlay
 
             Section(loc.Get("PANEL_STYLE"));
             GUILayout.BeginHorizontal();
-            if (GUILayout.Toggle(_editingState == 0, loc.Get("PANEL_STATE_IDLE"), PanelStyles.Button) && _editingState != 0)
+            try
             {
-                PanelTextInput.Cancel();
-                _editingState = 0;
+                if (GUILayout.Toggle(_editingState == 0, loc.Get("PANEL_STATE_IDLE"), PanelStyles.Button) && _editingState != 0)
+                {
+                    PanelTextInput.Cancel();
+                    _editingState = 0;
+                }
+                if (GUILayout.Toggle(_editingState == 1, loc.Get("PANEL_STATE_PRESSED"), PanelStyles.Button) && _editingState != 1)
+                {
+                    PanelTextInput.Cancel();
+                    _editingState = 1;
+                }
             }
-            if (GUILayout.Toggle(_editingState == 1, loc.Get("PANEL_STATE_PRESSED"), PanelStyles.Button) && _editingState != 1)
-            {
-                PanelTextInput.Cancel();
-                _editingState = 1;
-            }
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
 
             ButtonStyle style = _editingState == 0 ? s.Idle : s.Pressed;
             ColorRow(loc, "PANEL_COLOR_TEXT", style.Text, c => style.Text = c);
@@ -274,16 +280,19 @@ namespace TwilightInputOverlay
             for (int i = 0; i < s.Rows.Count; i++)
             {
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button(RowTitle(loc, s.Rows[i], i), PanelStyles.Button, GUILayout.ExpandWidth(true)))
+                try
                 {
-                    _activeRow = i;
-                    _expandedKey = -1;
-                    _confirmDeleteRow = -1;
-                    _confirmDeleteKey = -1;
+                    if (GUILayout.Button(RowTitle(loc, s.Rows[i], i), PanelStyles.Button, GUILayout.ExpandWidth(true)))
+                    {
+                        _activeRow = i;
+                        _expandedKey = -1;
+                        _confirmDeleteRow = -1;
+                        _confirmDeleteKey = -1;
+                    }
+                    MoveButton(loc, "PANEL_MOVE_UP", i > 0, () => MoveRow(s, i, i - 1));
+                    MoveButton(loc, "PANEL_MOVE_DOWN", i < s.Rows.Count - 1, () => MoveRow(s, i, i + 1));
                 }
-                MoveButton(loc, "PANEL_MOVE_UP", i > 0, () => MoveRow(s, i, i - 1));
-                MoveButton(loc, "PANEL_MOVE_DOWN", i < s.Rows.Count - 1, () => MoveRow(s, i, i + 1));
-                GUILayout.EndHorizontal();
+                finally { GUILayout.EndHorizontal(); }
             }
 
             if (GUILayout.Button(loc.Get("KEY_LAYOUT_ADD_ROW"), PanelStyles.Button))
@@ -342,16 +351,19 @@ namespace TwilightInputOverlay
             // Bottom of the row page: delete the whole row with confirmation.
             GUILayout.Space(4);
             GUILayout.BeginHorizontal();
-            bool confirmingRow = _confirmDeleteRow == rowIndex;
-            if (GUILayout.Button(confirmingRow ? loc.Get("PANEL_CONFIRM_DELETE") : loc.Get("KEY_LAYOUT_DELETE_ROW"),
-                    PanelStyles.Button, GUILayout.Width(180)))
+            try
             {
-                if (!confirmingRow) _confirmDeleteRow = rowIndex;
-                else DeleteRow(cfg.Settings, rowIndex);
+                bool confirmingRow = _confirmDeleteRow == rowIndex;
+                if (GUILayout.Button(confirmingRow ? loc.Get("PANEL_CONFIRM_DELETE") : loc.Get("KEY_LAYOUT_DELETE_ROW"),
+                        PanelStyles.Button, GUILayout.Width(180)))
+                {
+                    if (!confirmingRow) _confirmDeleteRow = rowIndex;
+                    else DeleteRow(cfg.Settings, rowIndex);
+                }
+                if (confirmingRow && GUILayout.Button(loc.Get("PANEL_CANCEL"), PanelStyles.Button, GUILayout.Width(120)))
+                    _confirmDeleteRow = -1;
             }
-            if (confirmingRow && GUILayout.Button(loc.Get("PANEL_CANCEL"), PanelStyles.Button, GUILayout.Width(120)))
-                _confirmDeleteRow = -1;
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
         }
 
         private static void DeleteRow(SettingsModel s, int rowIndex)
@@ -370,14 +382,17 @@ namespace TwilightInputOverlay
             bool expanded = _expandedKey == keyIndex;
             string title = (expanded ? "▾ " : "▸ ") + KeyItemTitle(loc, e);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(title, PanelStyles.Button, GUILayout.ExpandWidth(true)))
+            try
             {
-                _expandedKey = expanded ? -1 : keyIndex;
-                _confirmDeleteKey = -1;
+                if (GUILayout.Button(title, PanelStyles.Button, GUILayout.ExpandWidth(true)))
+                {
+                    _expandedKey = expanded ? -1 : keyIndex;
+                    _confirmDeleteKey = -1;
+                }
+                MoveButton(loc, "PANEL_MOVE_UP", keyIndex > 0, () => MoveKey(row, keyIndex, keyIndex - 1));
+                MoveButton(loc, "PANEL_MOVE_DOWN", keyIndex < row.Keys.Count - 1, () => MoveKey(row, keyIndex, keyIndex + 1));
             }
-            MoveButton(loc, "PANEL_MOVE_UP", keyIndex > 0, () => MoveKey(row, keyIndex, keyIndex - 1));
-            MoveButton(loc, "PANEL_MOVE_DOWN", keyIndex < row.Keys.Count - 1, () => MoveKey(row, keyIndex, keyIndex + 1));
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
             if (!expanded)
                 return;
 
@@ -413,16 +428,19 @@ namespace TwilightInputOverlay
 
             // 6. Delete this key with confirmation (bottom of the editor).
             GUILayout.BeginHorizontal();
-            bool confirmingKey = _confirmDeleteKey == keyIndex;
-            if (GUILayout.Button(confirmingKey ? loc.Get("PANEL_CONFIRM_DELETE") : loc.Get("KEY_DELETE"),
-                    PanelStyles.Button, GUILayout.Width(180)))
+            try
             {
-                if (!confirmingKey) _confirmDeleteKey = keyIndex;
-                else DeleteKey(row, keyIndex);
+                bool confirmingKey = _confirmDeleteKey == keyIndex;
+                if (GUILayout.Button(confirmingKey ? loc.Get("PANEL_CONFIRM_DELETE") : loc.Get("KEY_DELETE"),
+                        PanelStyles.Button, GUILayout.Width(180)))
+                {
+                    if (!confirmingKey) _confirmDeleteKey = keyIndex;
+                    else DeleteKey(row, keyIndex);
+                }
+                if (confirmingKey && GUILayout.Button(loc.Get("PANEL_CANCEL"), PanelStyles.Button, GUILayout.Width(120)))
+                    _confirmDeleteKey = -1;
             }
-            if (confirmingKey && GUILayout.Button(loc.Get("PANEL_CANCEL"), PanelStyles.Button, GUILayout.Width(120)))
-                _confirmDeleteKey = -1;
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
         }
 
         private static string KeyItemTitle(LocalizationService loc, KeyEntry e)
@@ -506,36 +524,42 @@ namespace TwilightInputOverlay
         {
             GUILayout.Label(label, PanelStyles.Value);
             GUILayout.BeginHorizontal();
-            float start = Mathf.Clamp(value, min, max);
-            float slider = GUILayout.HorizontalSlider(start, min, max);
-            if (slider != start)
+            try
             {
-                value = slider;
-                PanelTextInput.Cancel(key);
-            }
+                float start = Mathf.Clamp(value, min, max);
+                float slider = GUILayout.HorizontalSlider(start, min, max);
+                if (slider != start)
+                {
+                    value = slider;
+                    PanelTextInput.Cancel(key);
+                }
 
-            string display = value.ToString("R", CultureInfo.InvariantCulture);
-            string text = PanelTextInput.Draw(key, display, PanelStyles.TextField, GUILayout.Width(104));
-            GUILayout.EndHorizontal();
-            if (text == display) return value;
-            float number = SettingsModel.ParseFloat(text, float.NaN);
-            if (!float.IsFinite(number)
-                && (!float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out number)
-                    || !float.IsFinite(number)))
-                return value;
-            return Mathf.Clamp(number, min, max);
+                string display = value.ToString("R", CultureInfo.InvariantCulture);
+                string text = PanelTextInput.Draw(key, display, PanelStyles.TextField, GUILayout.Width(104));
+                if (text == display) return value;
+                float number = SettingsModel.ParseFloat(text, float.NaN);
+                if (!float.IsFinite(number)
+                    && (!float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out number)
+                        || !float.IsFinite(number)))
+                    return value;
+                return Mathf.Clamp(number, min, max);
+            }
+            finally { GUILayout.EndHorizontal(); }
         }
 
         private static float FloatFieldRow(string label, float value, string format = "F0")
         {
             GUILayout.BeginHorizontal();
-            string display = value.ToString(format);
-            string newText = PanelTextInput.Draw("float:" + label, display, PanelStyles.TextField, GUILayout.Width(70));
-            GUILayout.Label(label, PanelStyles.Label);
-            GUILayout.EndHorizontal();
-            float parsed;
-            if (newText != display && float.TryParse(newText, out parsed) && float.IsFinite(parsed)) return parsed;
-            return value;
+            try
+            {
+                string display = value.ToString(format);
+                string newText = PanelTextInput.Draw("float:" + label, display, PanelStyles.TextField, GUILayout.Width(70));
+                GUILayout.Label(label, PanelStyles.Label);
+                float parsed;
+                if (newText != display && float.TryParse(newText, out parsed) && float.IsFinite(parsed)) return parsed;
+                return value;
+            }
+            finally { GUILayout.EndHorizontal(); }
         }
 
         /// <summary>
@@ -546,18 +570,21 @@ namespace TwilightInputOverlay
         private static string SingleCharField(LocalizationService loc, string labelKey, string value, string bufKey)
         {
             GUILayout.BeginHorizontal();
-            string buf;
-            if (!LabelBuf.TryGetValue(bufKey, out buf))
+            try
             {
-                buf = value;
-                LabelBuf[bufKey] = buf;
+                string buf;
+                if (!LabelBuf.TryGetValue(bufKey, out buf))
+                {
+                    buf = value;
+                    LabelBuf[bufKey] = buf;
+                }
+                string next = PanelTextInput.Draw("label:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(60));
+                if (next.Length > 1) next = next.Substring(0, 1);
+                LabelBuf[bufKey] = next;
+                GUILayout.Label(loc.Get(labelKey), PanelStyles.Label);
+                return next;
             }
-            string next = PanelTextInput.Draw("label:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(60));
-            if (next.Length > 1) next = next.Substring(0, 1);
-            LabelBuf[bufKey] = next;
-            GUILayout.Label(loc.Get(labelKey), PanelStyles.Label);
-            GUILayout.EndHorizontal();
-            return next;
+            finally { GUILayout.EndHorizontal(); }
         }
 
         /// <summary>
@@ -569,25 +596,27 @@ namespace TwilightInputOverlay
         private static int IntFieldRow(string label, int value, string bufKey, int min, int max)
         {
             GUILayout.BeginHorizontal();
-            string buf;
-            if (!WidthBuf.TryGetValue(bufKey, out buf))
+            try
             {
-                buf = value.ToString(CultureInfo.InvariantCulture);
-                WidthBuf[bufKey] = buf;
+                string buf;
+                if (!WidthBuf.TryGetValue(bufKey, out buf))
+                {
+                    buf = value.ToString(CultureInfo.InvariantCulture);
+                    WidthBuf[bufKey] = buf;
+                }
+                string next = PanelTextInput.Draw("width:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(80));
+                WidthBuf[bufKey] = next;
+                GUILayout.Label(label, PanelStyles.Label);
+                int parsed;
+                if (next != buf && int.TryParse(next.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+                {
+                    int clamped = Mathf.Clamp(parsed, min, max);
+                    WidthBuf[bufKey] = clamped.ToString(CultureInfo.InvariantCulture);
+                    return clamped;
+                }
+                return value; // unparseable (half-typed) → keep the old value
             }
-            string next = PanelTextInput.Draw("width:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(80));
-            WidthBuf[bufKey] = next;
-            GUILayout.Label(label, PanelStyles.Label);
-            GUILayout.EndHorizontal();
-
-            int parsed;
-            if (next != buf && int.TryParse(next.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
-            {
-                int clamped = Mathf.Clamp(parsed, min, max);
-                WidthBuf[bufKey] = clamped.ToString(CultureInfo.InvariantCulture);
-                return clamped;
-            }
-            return value; // unparseable (half-typed) → keep the old value
+            finally { GUILayout.EndHorizontal(); }
         }
 
         private static void ColorRow(LocalizationService loc, string key, Color c, Action<Color> set)
@@ -596,15 +625,18 @@ namespace TwilightInputOverlay
 
             // Hex input.
             GUILayout.BeginHorizontal();
-            if (!ColorHexBuf.TryGetValue(bufKey, out string buf))
-                buf = ColorUtil.ToHex(c);
-            string newText = PanelTextInput.Draw("color:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(90));
-            ColorHexBuf[bufKey] = newText;
-            if (newText != buf && ColorUtil.TryParseColor(newText, out Color fromText))
-                set(fromText);
-            GUILayout.Label(loc.Get(key), PanelStyles.Label);
-            GUILayout.Label(loc.Get("PANEL_COLOR_HEX"), PanelStyles.Label);
-            GUILayout.EndHorizontal();
+            try
+            {
+                if (!ColorHexBuf.TryGetValue(bufKey, out string buf))
+                    buf = ColorUtil.ToHex(c);
+                string newText = PanelTextInput.Draw("color:" + bufKey, buf, PanelStyles.TextField, GUILayout.Width(90));
+                ColorHexBuf[bufKey] = newText;
+                if (newText != buf && ColorUtil.TryParseColor(newText, out Color fromText))
+                    set(fromText);
+                GUILayout.Label(loc.Get(key), PanelStyles.Label);
+                GUILayout.Label(loc.Get("PANEL_COLOR_HEX"), PanelStyles.Label);
+            }
+            finally { GUILayout.EndHorizontal(); }
 
             float r = SliderRow(bufKey + ":r", "R", c.r, 0f, 1f);
             float g = SliderRow(bufKey + ":g", "G", c.g, 0f, 1f);
@@ -700,28 +732,31 @@ namespace TwilightInputOverlay
             Func<KeyCode> get, Action<KeyCode> set, bool allowMouse = false)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label(loc.Get(key), PanelStyles.Label, GUILayout.Width(180));
-            bool pending = _pendingRebind == id;
-            string btn = pending ? loc.Get("PANEL_PRESS_KEY_CANCEL") : KeyName(get());
-            if (GUILayout.Button(btn, PanelStyles.Button, GUILayout.Width(150)))
+            try
             {
-                if (pending)
+                GUILayout.Label(loc.Get(key), PanelStyles.Label, GUILayout.Width(180));
+                bool pending = _pendingRebind == id;
+                string btn = pending ? loc.Get("PANEL_PRESS_KEY_CANCEL") : KeyName(get());
+                if (GUILayout.Button(btn, PanelStyles.Button, GUILayout.Width(150)))
                 {
-                    // Keyboard-armed rows cancel by clicking again; mouse-armed
-                    // rows cannot (the click would bind Mouse0) and use Esc.
-                    _pendingRebind = null;
-                    _pendingApply = null;
-                    _pendingAllowMouse = false;
-                }
-                else
-                {
-                    PanelTextInput.Cancel();
-                    _pendingRebind = id;
-                    _pendingApply = set;
-                    _pendingAllowMouse = allowMouse;
+                    if (pending)
+                    {
+                        // Keyboard-armed rows cancel by clicking again; mouse-armed
+                        // rows cannot (the click would bind Mouse0) and use Esc.
+                        _pendingRebind = null;
+                        _pendingApply = null;
+                        _pendingAllowMouse = false;
+                    }
+                    else
+                    {
+                        PanelTextInput.Cancel();
+                        _pendingRebind = id;
+                        _pendingApply = set;
+                        _pendingAllowMouse = allowMouse;
+                    }
                 }
             }
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
         }
 
         private static KeyCode MouseKeyCodeForButton(int button)
@@ -838,17 +873,20 @@ namespace TwilightInputOverlay
                 if (_presetCreating)
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label(loc.Get("SETTINGS_PRESET_NEW_NAME"), PanelStyles.Label);
-                    _presetNewName = PanelTextInput.Draw("preset:name", _presetNewName, PanelStyles.TextField, GUILayout.Width(160));
-                    if (GUILayout.Button(loc.Get("SETTINGS_PRESET_CONFIRM"), PanelStyles.Button, GUILayout.Width(80)))
-                        ConfirmNewPreset(cfg);
-                    if (GUILayout.Button(loc.Get("SETTINGS_PRESET_CANCEL"), PanelStyles.Button, GUILayout.Width(80)))
+                    try
                     {
-                        _presetCreating = false;
-                        _presetNewName = "";
-                        _presetErrorKey = null;
+                        GUILayout.Label(loc.Get("SETTINGS_PRESET_NEW_NAME"), PanelStyles.Label);
+                        _presetNewName = PanelTextInput.Draw("preset:name", _presetNewName, PanelStyles.TextField, GUILayout.Width(160));
+                        if (GUILayout.Button(loc.Get("SETTINGS_PRESET_CONFIRM"), PanelStyles.Button, GUILayout.Width(80)))
+                            ConfirmNewPreset(cfg);
+                        if (GUILayout.Button(loc.Get("SETTINGS_PRESET_CANCEL"), PanelStyles.Button, GUILayout.Width(80)))
+                        {
+                            _presetCreating = false;
+                            _presetNewName = "";
+                            _presetErrorKey = null;
+                        }
                     }
-                    GUILayout.EndHorizontal();
+                    finally { GUILayout.EndHorizontal(); }
                     if (_presetErrorKey != null)
                         GUILayout.Label(loc.Get(_presetErrorKey), PanelStyles.Small);
                 }
@@ -863,21 +901,24 @@ namespace TwilightInputOverlay
             }
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(loc.Get("SETTINGS_PRESET_LOAD"), PanelStyles.Button))
+            try
             {
-                if (PresetStore.LoadCurrent(cfg))
-                    _presetErrorKey = null;
-                else
-                    _presetErrorKey = "SETTINGS_PRESET_LOAD_FAILED";
+                if (GUILayout.Button(loc.Get("SETTINGS_PRESET_LOAD"), PanelStyles.Button))
+                {
+                    if (PresetStore.LoadCurrent(cfg))
+                        _presetErrorKey = null;
+                    else
+                        _presetErrorKey = "SETTINGS_PRESET_LOAD_FAILED";
+                }
+                if (GUILayout.Button(loc.Get("SETTINGS_PRESET_SAVE"), PanelStyles.Button))
+                {
+                    if (PresetStore.SaveToCurrent(cfg))
+                        _presetErrorKey = null;
+                    else
+                        _presetErrorKey = "SETTINGS_PRESET_SAVE_FAILED";
+                }
             }
-            if (GUILayout.Button(loc.Get("SETTINGS_PRESET_SAVE"), PanelStyles.Button))
-            {
-                if (PresetStore.SaveToCurrent(cfg))
-                    _presetErrorKey = null;
-                else
-                    _presetErrorKey = "SETTINGS_PRESET_SAVE_FAILED";
-            }
-            GUILayout.EndHorizontal();
+            finally { GUILayout.EndHorizontal(); }
 
             bool isDefault = string.Equals(s.CurrentPreset, PresetStore.DefaultPresetName, StringComparison.OrdinalIgnoreCase);
             if (!isDefault)
@@ -887,32 +928,35 @@ namespace TwilightInputOverlay
                 // cannot destroy a preset. The confirm state is dropped when
                 // the panel reopens or the selection changes.
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button(_presetDeleting ? loc.Get("SETTINGS_PRESET_DELETE_CONFIRM") : loc.Get("SETTINGS_PRESET_DELETE"), PanelStyles.Button))
+                try
                 {
-                    if (!_presetDeleting)
+                    if (GUILayout.Button(_presetDeleting ? loc.Get("SETTINGS_PRESET_DELETE_CONFIRM") : loc.Get("SETTINGS_PRESET_DELETE"), PanelStyles.Button))
                     {
-                        _presetDeleting = true;
-                        _presetErrorKey = null;
+                        if (!_presetDeleting)
+                        {
+                            _presetDeleting = true;
+                            _presetErrorKey = null;
+                        }
+                        else if (PresetStore.DeleteCurrent(cfg))
+                        {
+                            RefreshPresetList();
+                            _presetDropdownOpen = false;
+                            _presetCreating = false;
+                            _presetDeleting = false;
+                            _presetErrorKey = null;
+                        }
+                        else
+                        {
+                            _presetErrorKey = "SETTINGS_PRESET_DELETE_FAILED";
+                        }
                     }
-                    else if (PresetStore.DeleteCurrent(cfg))
+                    if (_presetDeleting && GUILayout.Button(loc.Get("SETTINGS_PRESET_CANCEL"), PanelStyles.Button))
                     {
-                        RefreshPresetList();
-                        _presetDropdownOpen = false;
-                        _presetCreating = false;
                         _presetDeleting = false;
                         _presetErrorKey = null;
                     }
-                    else
-                    {
-                        _presetErrorKey = "SETTINGS_PRESET_DELETE_FAILED";
-                    }
                 }
-                if (_presetDeleting && GUILayout.Button(loc.Get("SETTINGS_PRESET_CANCEL"), PanelStyles.Button))
-                {
-                    _presetDeleting = false;
-                    _presetErrorKey = null;
-                }
-                GUILayout.EndHorizontal();
+                finally { GUILayout.EndHorizontal(); }
             }
 
             if (_presetErrorKey != null)

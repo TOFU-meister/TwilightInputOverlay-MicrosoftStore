@@ -8,6 +8,6 @@ namespace TwilightInputOverlay
     {
         public const string PLUGIN_GUID = "TwilightInputOverlay";
         public const string PLUGIN_NAME = "TwilightInputOverlay Microsoft Store";
-        public const string PLUGIN_VERSION = "0.1.0-alpha.4";
+        public const string PLUGIN_VERSION = "0.1.0-alpha.5";
     }
 }

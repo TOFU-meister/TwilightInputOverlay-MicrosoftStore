@@ -22,9 +22,10 @@ namespace TwilightInputOverlay
 
         private void Update()
         {
+            if (Plugin.IntegratedSettings) return;
             var cfg = ConfigService.Instance;
             if (cfg == null) return;
-            if (!PanelTextInput.IsEditing && Input.GetKeyDown(cfg.Settings.PanelKey))
+            if (!PanelContent.CapturesInput && Input.GetKeyDown(cfg.Settings.PanelKey))
                 Toggle();
         }
 
@@ -58,7 +59,7 @@ namespace TwilightInputOverlay
 
         private void OnGUI()
         {
-            if (!_visible || _drawFailed) return;
+            if (Plugin.IntegratedSettings || !_visible || _drawFailed) return;
             try
             {
                 PanelStyles.Ensure();

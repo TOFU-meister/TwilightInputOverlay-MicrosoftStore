@@ -3,6 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>TwilightInputOverlay</AssemblyName>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Version>0.1.0-pre</Version>
   </PropertyGroup>
 
@@ -12,6 +13,7 @@
     <Reference Include="@(StoreCore->'$(BepInExDir)/core/%(Identity).dll')" Private="false" />
     <Reference Include="@(StoreInterop->'$(BepInExDir)/interop/%(Identity).dll')" Private="false" />
     <None Include="../../LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="../../LICENSE" LogicalName="TwilightInputOverlay.LICENSE" />
     <EmbeddedResource Include="lang/en.txt" LogicalName="TwilightInputOverlay.lang.en.txt" />
     <EmbeddedResource Include="lang/zh-Hans.txt" LogicalName="TwilightInputOverlay.lang.zh-Hans.txt" />
   </ItemGroup>

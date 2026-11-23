@@ -10,7 +10,23 @@ Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグ
 
 ## バージョン管理
 
-Store 版は `0.x.x-pre` を使い、各プラグインで独立して進めます。先頭の `0` と末尾の `-pre` はプレリリース期間中固定です。小機能、バグ修正、UI 調整は3番目を進めます。大きな機能追加、仕様変更、大規模な修正は2番目を進め、3番目を `0` に戻します。バージョン更新時は `PluginInfo.cs` と `.csproj` の番号をそろえます。公開時のタグは `v<version>`、配布 ZIP は `TwilightInputOverlay-MicrosoftStore-v<version>.zip` とします。
+Store 版は `0.x.x-pre` を使い、各プラグインで独立して進めます。先頭の `0` と末尾の `-pre` はプレリリース期間中固定です。小機能、バグ修正、UI 調整は3番目を進めます。大きな機能追加、仕様変更、大規模な修正は2番目を進め、3番目を `0` に戻します。バージョン更新時は `PluginInfo.cs` と `.csproj` の番号をそろえます。公開時のタグは `v<version>`、配布 DLL は `TwilightInputOverlay-v<version>.dll` とします。
+
+## インストールと更新
+
+[Store 版の Releases](https://github.com/TOFU-meister/TwilightInputOverlay-MicrosoftStore/releases) から `TwilightInputOverlay-v<version>.dll` を取得します。ゲームを終了し、ダウンロードした DLL を `BepInEx/plugins/TwilightInputOverlay/` に配置します。BepInEx は別途導入してください。
+
+更新時は `BepInEx/plugins` 全体から旧版の `TwilightInputOverlay.dll` や `TwilightInputOverlay-v*.dll` を取り除きます。HSRTimer と併用する場合は、それぞれのプラグイン DLL を1個ずつ配置してください。
+
+## 配布用 DLL を作成する
+
+Windows x64 で実際にゲームを起動して生成した `BepInEx/interop` と、同じインストールの `BepInEx/core` を使います。
+
+```powershell
+.\scripts\New-StoreReleaseDll.ps1 -BepInExDir 'C:\Path\To\HumanFallFlat\BepInEx' -OutputDirectory .\release
+```
+
+この開発版では `TwilightInputOverlay-v0.1.0-pre.dll` が生成されます。公開時は実機確認済みの DLL を Release に添付し、著作権表示を含む [LICENSE](LICENSE) の全文を Release 本文に掲載するか、別の `LICENSE` アセットとして添付します。DLL にも同じライセンス全文が埋め込まれています。
 
 ## Windows PowerShell でのビルド
 

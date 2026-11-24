@@ -24,15 +24,18 @@ namespace TwilightInputOverlay
         internal bool Unsupported { get; private set; }
         internal bool CanAttempt => !Unsupported && _clock() >= _retryAfter;
         internal int Failures { get; private set; }
+        internal bool WarningPending => !_warned;
 
-        internal void Fail(Exception error)
+        internal void Fail(Exception error, string context = null)
         {
             Failures++;
             Unsupported = error is MissingMemberException or EntryPointNotFoundException or NotSupportedException;
             _retryAfter = _clock() + RetryDelayMs;
             if (_warned) return;
             _warned = true;
-            _warning($"TwilightInputOverlay: {_label} unavailable. {error.GetType().Name}: {error.Message}");
+            _warning(context == null
+                ? $"TwilightInputOverlay: {_label} unavailable. {error.GetType().Name}: {error.Message}"
+                : $"TwilightInputOverlay: {_label} unavailable. {context}\n{error}");
         }
     }
 }

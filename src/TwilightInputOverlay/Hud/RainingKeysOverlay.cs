@@ -347,7 +347,7 @@ namespace TwilightInputOverlay
                 if (height <= 0f) continue;
                 var rect = new Rect(centerX - width * 0.5f, bar.TopY - regionTop, width, height);
 
-                // BeginGroup clips the combined shape without adding an end cap.
+                // BeginGroup clips the mask without adding an end cap.
                 DrawBar(rect, radius);
                 if (_barDrawingFailed) return;
             }
@@ -359,33 +359,37 @@ namespace TwilightInputOverlay
 
             if (OverlayTexture.Rain.CanAttempt && radius > 0f)
             {
-                int submitted = 0;
+                string stage = "cache lookup";
+                Texture2D mask = null;
+                RainBarTextureCache.MaskInfo info = default;
+                bool checkedUnityLive = false;
                 try
                 {
-                    var mask = RainBarTextureCache.Get(rect.width, radius);
-                    if (mask.Texture != null)
+                    mask = RainBarTextureCache.Get(rect.width, rect.height, radius, ref stage, out info);
+                    stage = "mask Unity validity";
+                    if (mask != null)
                     {
-                        Span<RainBarGeometry.Slice> slices = stackalloc RainBarGeometry.Slice[9];
-                        int count = RainBarGeometry.Slices(rect.width, rect.height, radius, mask.Radius,
-                            mask.ShapeWidth, mask.ShapeHeight, slices);
-                        for (; submitted < count; submitted++)
-                        {
-                            var slice = slices[submitted];
-                            GUI.DrawTextureWithTexCoords(
-                                new Rect(rect.x + slice.X, rect.y + slice.Y, slice.Width, slice.Height),
-                                mask.Texture, new Rect(slice.U, slice.V, slice.UWidth, slice.VHeight), true);
-                            TextureDraws++;
-                        }
-                        if (submitted > 0) return;
+                        checkedUnityLive = true;
+                        stage = "draw";
+                        GUI.DrawTexture(rect, mask);
+                        TextureDraws++;
+                        return;
                     }
                 }
                 catch (Exception error)
                 {
-                    OverlayTexture.Rain.Fail(error);
-                    RainBarTextureCache.Release();
-                    // The following bars can fall back immediately. Do not
-                    // paint over already submitted translucent slices.
-                    if (submitted > 0) return;
+                    Exception cleanupFailure = null;
+                    try { RainBarTextureCache.Release(); }
+                    catch (Exception cleanupError) { cleanupFailure = cleanupError; }
+                    string context = OverlayTexture.Rain.WarningPending
+                        ? $"stage={stage}; api=GUI.DrawTexture(Rect, Texture); "
+                        + $"rect=({rect.x}, {rect.y}, {rect.width}, {rect.height}); uv=(0, 0, 1, 1) implicit; "
+                        + $"mask={info.Width}x{info.Height}; radius={info.Radius}; requestedRadius={radius}; "
+                        + $"clrNull={mask is null}; checkedUnityLive={checkedUnityLive}; "
+                        + "owned masks use DontUnloadUnusedAsset after texture creation."
+                        + (cleanupFailure == null ? "" : "\nCache cleanup also failed: " + cleanupFailure)
+                        : null;
+                    OverlayTexture.Rain.Fail(error, context);
                 }
             }
 

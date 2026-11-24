@@ -27,7 +27,7 @@ namespace TwilightInputOverlay
 
         private static byte ToByte(float value) => (byte)(Math.Clamp(value, 0f, 1f) * 255f);
 
-        internal static Texture2D Upload(int width, int height, Color32[] pixels, TextureRecovery recovery)
+        internal static Texture2D Upload(int width, int height, Color32[] pixels, TextureRecovery recovery, bool propagateFailure = false)
         {
             Texture2D texture = null;
             try
@@ -39,6 +39,12 @@ namespace TwilightInputOverlay
             }
             catch (Exception error)
             {
+                if (propagateFailure)
+                {
+                    try { if (texture != null) UnityEngine.Object.Destroy(texture); }
+                    catch (Exception cleanupError) { throw new AggregateException(error, cleanupError); }
+                    throw;
+                }
                 if (texture != null) UnityEngine.Object.Destroy(texture);
                 recovery.Fail(error);
                 return null;

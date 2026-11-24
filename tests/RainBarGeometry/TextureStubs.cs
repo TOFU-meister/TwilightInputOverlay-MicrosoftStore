@@ -72,7 +72,7 @@ namespace TwilightInputOverlay
             b = (byte)(color.B * 255f), a = (byte)(color.A * 255f),
         };
 
-        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels, TextureRecovery recovery)
+        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels, TextureRecovery recovery, bool propagateFailure = false)
             => FailUpload ? null : new UnityEngine.Texture2D { Pixels = pixels };
     }
 }

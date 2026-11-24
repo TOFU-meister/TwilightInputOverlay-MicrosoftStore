@@ -82,72 +82,52 @@ RainBarTextureCache.Release();
 RainBarTextureCache.Release();
 Check(RainBarTextureCache.Count == 0, "release empty cache");
 
-var first = RainBarTextureCache.Get(28f, 9.5f).Texture;
-Check(ReferenceEquals(first, RainBarTextureCache.Get(28f, 9.5f).Texture), "reuse live mask");
+var first = RainBarTextureCache.Get(28f, 100f, 9.5f);
+Check(ReferenceEquals(first, RainBarTextureCache.Get(28f, 100f, 9.5f)), "reuse live mask");
 UnityEngine.Object.Destroy(first);
 OverlayTexture.FailUpload = true;
-Check(RainBarTextureCache.Get(28f, 9.5f).Texture == null, "dead hit and failed upload fall back");
+Check(RainBarTextureCache.Get(28f, 100f, 9.5f) == null, "dead hit and failed upload fall back");
 Check(RainBarTextureCache.Count == 0, "dead hit removed from cache");
 OverlayTexture.FailUpload = false;
-var rebuilt = RainBarTextureCache.Get(28f, 9.5f).Texture;
+var rebuilt = RainBarTextureCache.Get(28f, 100f, 9.5f);
 Check(rebuilt != null && !ReferenceEquals(first, rebuilt), "dead hit can be rebuilt");
 
-RainBarTextureCache.Release();
-Span<RainBarGeometry.Slice> slices = stackalloc RainBarGeometry.Slice[9];
-int rainWarmup = RainBarTextureCache.Bakes;
-foreach (float width in new[] { 28f, 56f })
-    RainBarTextureCache.Get(width, 9.5f);
-for (int cycle = 0; cycle < 12; cycle++)
+for (int round = 0; round < 20; round++)
 {
-    for (int step = 1; step <= 640; step++)
+    for (int height = 2; height <= 180; height++)
     {
-        float height = (step <= 320 ? step : 641 - step) * 0.5f;
-        foreach (float width in new[] { 28f, 56f })
-        {
-            var mask = RainBarTextureCache.Get(width, 9.5f);
-            int count = RainBarGeometry.Slices(width, height, 9.5f, mask.Radius, mask.ShapeWidth, mask.ShapeHeight, slices);
-            Check(count == (height < 19f ? 6 : height == 19f ? 2 : 3), "short and tall slice count");
-            double area = 0;
-            for (int i = 0; i < count; i++)
-            {
-                var slice = slices[i];
-                area += slice.Width * slice.Height;
-                Check(slice.Width > 0 && slice.Height > 0 && slice.UWidth > 0 && slice.VHeight > 0, "nonempty slice");
-                Check(slice.X >= 0 && slice.Y >= 0 && slice.U >= 0 && slice.V >= 0
-                    && slice.U + slice.UWidth <= 1.000001f && slice.V + slice.VHeight <= 1.000001f, "valid UVs");
-                for (int j = 0; j < i; j++)
-                {
-                    var other = slices[j];
-                    float overlapX = Math.Min(slice.X + slice.Width, other.X + other.Width) - Math.Max(slice.X, other.X);
-                    float overlapY = Math.Min(slice.Y + slice.Height, other.Y + other.Height) - Math.Max(slice.Y, other.Y);
-                    Check(overlapX < 0.00001f || overlapY < 0.00001f, "translucent slices do not overlap");
-                }
-            }
-            Check(Math.Abs(area - width * height) < 0.01, "slices cover full bar without gaps");
-        }
+        var texture = RainBarTextureCache.Get(28f + round, height, 9.5f);
+        Check(texture != null, "repeat fill and eviction");
+        Check(ReferenceEquals(texture, RainBarTextureCache.Get(28f + round, height, 9.5f)),
+            "repeat reuse");
     }
+    Check(RainBarTextureCache.Count <= 96, "entry limit");
 }
-Check(RainBarTextureCache.Bakes - rainWarmup == 2 && RainBarTextureCache.Count == 2, "no bakes after two-width warmup");
-Console.WriteLine($"Rain replay: 15,360 lookups, 2 bakes, {RainBarTextureCache.Pixels} retained pixels.");
-
-var extremeRain = RainBarTextureCache.Get(28f, 500f);
-Check(RainBarGeometry.Slices(28f, 0.05f, 500f, extremeRain.Radius, extremeRain.ShapeWidth, extremeRain.ShapeHeight, slices) == 6
-    && slices[0].Height == 0.025f && slices[2].UWidth > 0f, "width-clamped atlas handles subpixel short bars");
-Check(RainBarTextureCache.Get(32f, 0f).Texture == null, "square bars bypass cache");
-Check(RainBarGeometry.Slices(32f, 8f, 0f, 1f, 32, 3, slices) == 0, "no rounded parts for zero radius");
-
-var oldest = RainBarTextureCache.Get(20f, 3f).Texture;
-for (int width = 30; width < 140; width++)
-    RainBarTextureCache.Get(width, 3f);
-Check(oldest.Destroyed && RainBarTextureCache.Count == 96, "entry cap evicts old atlas");
+Check(rebuilt.Destroyed, "old mask evicted without native size getters");
 RainBarTextureCache.Release();
-var large = RainBarTextureCache.Get(1024f, 512f).Texture;
-RainBarTextureCache.Get(1024f, 511f);
-RainBarTextureCache.Get(1024f, 510f);
-Check(large.Destroyed && RainBarTextureCache.Pixels <= 2 * 1024 * 1024, "pixel budget evicts old atlas");
+
+var large = RainBarTextureCache.Get(1024f, 1024f, 12f);
+RainBarTextureCache.Get(1024f, 1024f, 13f);
+UnityEngine.Object.Destroy(large);
+RainBarTextureCache.Get(1024f, 1024f, 14f);
+Check(RainBarTextureCache.Count == 2, "pixel limit evicts already-destroyed texture");
 RainBarTextureCache.Release();
-Check(RainBarTextureCache.Count == 0 && RainBarTextureCache.Pixels == 0, "release populated cache");
-Console.WriteLine("Rain cache checks passed (replay, slice geometry, invalid textures and both limits).");
+Check(RainBarTextureCache.Count == 0, "release populated cache");
+Check(RainBarTextureCache.Get(32f, 64f, 0f) == null, "square bars bypass cache");
+Console.WriteLine("Rain cache checks passed (3,580 insert/reuse pairs, invalid textures, empty release and both eviction limits).");
+
+// Reproduce the reported fractional settings, both automatic and fixed width,
+// with dimensions small enough to clamp and tall enough to retain the radius.
+foreach (float width in new[] { 56f * 1.33f, 28f * 1.33f, 23.45f * 1.33f })
+foreach (float height in new[] { 0.35f, 2.7f, 21.93f, 160f * 1.33f })
+{
+    string stage = null;
+    var texture = RainBarTextureCache.Get(width, height, 8.24f * 1.33f, ref stage, out var info);
+    Check(texture != null && texture.Pixels.Length == info.Width * info.Height, "fractional mask is usable");
+    Check(info.Radius > 0 && info.Radius <= Math.Min(info.Width, info.Height) * 0.5f, "rounded radius limited by mask dimensions");
+    Check(ReferenceEquals(texture, RainBarTextureCache.Get(width, height, 8.24f * 1.33f)), "fractional masks reused");
+}
+RainBarTextureCache.Release();
 
 Check(RoundedRectTextureCache.GetMask(57, 56, 0) == null, "square keys bypass rounded masks");
 Check(RoundedRectTextureCache.GetMask(57, 56, 1).Pixels[0].a < 255, "small positive radius has corner coverage");
@@ -199,6 +179,16 @@ Console.WriteLine("Key mask checks passed (split geometry, live reuse, invalid t
 
 long now = 0;
 int warnings = 0;
+string rainWarning = null;
+var rainRecovery = new TextureRecovery("test Rain", () => 0, warning => rainWarning = warning);
+try { throw new InvalidOperationException("simulated draw"); }
+catch (Exception error) { rainRecovery.Fail(error, "stage=draw; uv=(0, 0, 1, 1)"); }
+Check(rainWarning.Contains("stage=draw") && rainWarning.Contains("simulated draw") && rainWarning.Contains(" at "),
+    "first Rain warning carries stage and stack trace");
+var firstRainWarning = rainWarning;
+rainRecovery.Fail(new Exception("second"), "second warning");
+Check(!rainRecovery.WarningPending && rainWarning == firstRainWarning, "repeated failures do not warn again");
+
 var trailRecovery = new TextureRecovery("Trail", () => now, _ => warnings++);
 var circleRecovery = new TextureRecovery("Circle", () => now, _ => warnings++);
 var trail = CursorShapeTextureCache.Get(12, 34, trailRecovery);

@@ -142,6 +142,7 @@ namespace TwilightInputOverlay
             if (cfg == null) return;
             var s = cfg.Settings;
             if (!s.ShowCursor && !s.ShowCursorRegion) return;
+            using var measurement = new OverlayPerformance.Measurement(2);
 
             // Region backdrop first, so the cursor and its trail draw on top.
             if (s.ShowCursorRegion)

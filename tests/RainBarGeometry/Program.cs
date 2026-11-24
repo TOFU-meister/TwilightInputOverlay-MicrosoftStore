@@ -222,3 +222,9 @@ CursorShapeTextureCache.Release();
 CursorShapeTextureCache.Release();
 Check(CursorShapeTextureCache.Count == 0 && CursorShapeTextureCache.Pixels == 0, "repeated teardown is safe");
 Console.WriteLine("Cursor mask checks passed (geometry, reuse, teardown, both budgets, failure recovery and isolation).");
+
+Check(RoundedRectTextureCache.Created > 0 && RoundedRectTextureCache.Destroyed > 0
+    && RoundedRectTextureCache.InvalidHits > 0 && RoundedRectTextureCache.Pixels == 0, "key counters and released pixels");
+Check(RainBarTextureCache.Bakes > 0 && RainBarTextureCache.Destroyed > 0
+    && RainBarTextureCache.InvalidHits > 0 && RainBarTextureCache.Pixels == 0, "rain counters and released pixels");
+Check(CursorShapeTextureCache.Bakes > 0 && CursorShapeTextureCache.Destroyed > 0, "mouse counters");

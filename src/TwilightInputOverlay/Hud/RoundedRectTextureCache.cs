@@ -23,6 +23,12 @@ namespace TwilightInputOverlay
         public static int FillBakes { get; private set; }
         internal static int FillCacheCount => Cache.Count;
 
+        internal static int Pixels => _pixels;
+        internal static long Rebuilt { get; private set; }
+        internal static long Destroyed { get; private set; }
+        internal static long InvalidHits { get; private set; }
+        internal static long Created { get; private set; }
+
         internal static Texture2D GetMask(int width, int height, int radius, Mask part = Mask.Full, int borderWidth = 0)
         {
             if (width < 1 || height < 1 || width > OverlayTexture.MaxDimension || height > OverlayTexture.MaxDimension)
@@ -34,7 +40,8 @@ namespace TwilightInputOverlay
             bool border = part == Mask.Border;
             if (!border) FillCalls++;
             var key = new Key(width, height, radius, part, borderWidth);
-            if (Cache.TryGetValue(key, out var node))
+            bool replacing = Cache.TryGetValue(key, out var node);
+            if (replacing)
             {
                 if (node.Value.Texture != null)
                 {
@@ -42,6 +49,7 @@ namespace TwilightInputOverlay
                     Order.AddLast(node);
                     return node.Value.Texture;
                 }
+                InvalidHits++;
                 Remove(node);
             }
 
@@ -51,6 +59,8 @@ namespace TwilightInputOverlay
                 ? BuildBorderMask(width, height, radius, borderWidth)
                 : BuildFillMask(width, height, radius, part, pixelWidth);
             if (texture == null) return null;
+            if (replacing) Rebuilt++;
+            Created++;
             if (!border) FillBakes++;
 
             int pixels = pixelWidth * height;
@@ -75,7 +85,10 @@ namespace TwilightInputOverlay
             Order.Remove(node);
             _pixels -= entry.Pixels;
             if (entry.Texture != null)
+            {
+                Destroyed++;
                 UnityEngine.Object.Destroy(entry.Texture);
+            }
         }
 
         private static Texture2D BuildFillMask(int width, int height, int radius, Mask part, int pixelWidth)

@@ -72,6 +72,7 @@ namespace TwilightInputOverlay
         private const int MaxBarsPerSlot = 32;
 
         private Dictionary<int, Rain> _rains = new Dictionary<int, Rain>();
+        private Dictionary<int, Rain> _nextRains = new Dictionary<int, Rain>();
 
         // ── Debug logging (SettingsModel.DebugInfo) ───────────────────────
         // Log bar counts and the rate of HUD and rain mask creation. A held
@@ -118,6 +119,7 @@ namespace TwilightInputOverlay
             if (!s.RainingEnabled || !s.ShowHud || s.Rows == null || s.Rows.Count == 0 || speed <= 0f)
             {
                 _rains.Clear();
+                _nextRains.Clear();
                 return;
             }
 
@@ -131,7 +133,8 @@ namespace TwilightInputOverlay
             if (dt <= 0f) dt = 1f / 60f;
 
             var row = s.Rows[0];
-            var next = new Dictionary<int, Rain>();
+            var next = _nextRains;
+            next.Clear();
             for (int i = 0; i < row.Keys.Count; i++)
             {
                 var e = row.Keys[i];
@@ -147,7 +150,9 @@ namespace TwilightInputOverlay
                     Advance(next, SlotOf(e, -1), InputState.IsHeld(e.Key1), regionTop, speed, dt);
                 }
             }
+            _nextRains = _rains;
             _rains = next;
+            _nextRains.Clear();
 
             if (s.DebugInfo)
                 LogDebugStats(s, regionHeightPx, gapPx, dt);
@@ -209,7 +214,10 @@ namespace TwilightInputOverlay
         {
             Rain rain;
             if (!_rains.TryGetValue(slot, out rain))
+            {
+                if (!pressed) return;
                 rain = new Rain();
+            }
 
             // Rising edge: a new bar appears with height 0 at the region's bottom edge
             // (RainingGap above the key tops). Its bottom stays pinned there while held,
@@ -222,9 +230,10 @@ namespace TwilightInputOverlay
             }
             rain.WasPressed = pressed;
 
-            var kept = new List<Bar>(rain.Bars.Count);
-            foreach (var bar in rain.Bars)
+            int kept = 0;
+            for (int i = 0; i < rain.Bars.Count; i++)
             {
+                var bar = rain.Bars[i];
                 if (bar.Held && pressed)
                 {
                     // While held the top extends upward, but never past the
@@ -246,10 +255,9 @@ namespace TwilightInputOverlay
                 }
                 if (bar.BottomY <= regionTop)
                     continue;                            // fully above the region: gone
-                kept.Add(bar);
+                rain.Bars[kept++] = bar;
             }
-            rain.Bars.Clear();
-            rain.Bars.AddRange(kept);
+            if (kept < rain.Bars.Count) rain.Bars.RemoveRange(kept, rain.Bars.Count - kept);
 
             if (rain.Bars.Count > 0 || pressed)
                 next[slot] = rain;
@@ -265,6 +273,7 @@ namespace TwilightInputOverlay
             if (!s.RainingEnabled || !s.ShowHud || s.Rows == null || s.Rows.Count == 0)
                 return;
 
+            using var measurement = new OverlayPerformance.Measurement(1);
             // Same layout math as InputHud.OnGUI: keep in sync.
             float cell = Mathf.Max(8f, 56f * s.Scale);
             float spacing = Mathf.Max(0f, s.Spacing * s.Scale);

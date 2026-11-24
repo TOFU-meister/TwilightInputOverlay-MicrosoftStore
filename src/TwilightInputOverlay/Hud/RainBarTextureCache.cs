@@ -22,6 +22,11 @@ namespace TwilightInputOverlay
         internal static int Bakes { get; private set; }
         internal static int Count => Cache.Count;
 
+        internal static int Pixels => _cachedPixels;
+        internal static long Rebuilt { get; private set; }
+        internal static long Destroyed { get; private set; }
+        internal static long InvalidHits { get; private set; }
+
         internal static Texture2D Get(float width, float height, float requestedRadius)
         {
             float radius = RainBarGeometry.Radius(width, height, requestedRadius);
@@ -36,11 +41,13 @@ namespace TwilightInputOverlay
             int radiusSteps = Mathf.RoundToInt(radius * RadiusStepsPerPixel);
             if (radiusSteps == 0) return null;
             var key = new CacheKey(shapeWidth, shapeHeight, radiusSteps);
-            if (Cache.TryGetValue(key, out var existing))
+            bool replacing = Cache.TryGetValue(key, out var existing);
+            if (replacing)
             {
                 if (existing.Value.Texture != null)
                     return existing.Value.Texture;
 
+                InvalidHits++;
                 Remove(existing);
             }
 
@@ -66,6 +73,7 @@ namespace TwilightInputOverlay
 
             var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels, OverlayTexture.Rain);
             if (texture == null) return null;
+            if (replacing) Rebuilt++;
             Bakes++;
 
             while (Order.First is { } oldest
@@ -89,7 +97,10 @@ namespace TwilightInputOverlay
             Order.Remove(node);
             _cachedPixels -= entry.PixelCount;
             if (entry.Texture != null)
+            {
+                Destroyed++;
                 UnityEngine.Object.Destroy(entry.Texture);
+            }
         }
 
         internal static void Release()

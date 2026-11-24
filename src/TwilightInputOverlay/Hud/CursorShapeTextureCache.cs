@@ -48,7 +48,8 @@ namespace TwilightInputOverlay
             radius = System.Math.Clamp(radius, 1, MaxRadius);
             rear = LimitRear(radius, rear);
             var key = new ShapeKey(radius, rear);
-            if (Cache.TryGetValue(key, out var node))
+            bool replacing = Cache.TryGetValue(key, out var node);
+            if (replacing)
             {
                 if (node.Value.Shape.Texture != null)
                 {
@@ -64,6 +65,7 @@ namespace TwilightInputOverlay
             int height = radius * 2 + Pad * 2;
             var tex = Build(radius, rear, width, height, recovery);
             if (tex == null) return default;
+            if (replacing) Rebuilt++;
 
             while (Order.First is { } oldest && (Count >= MaxEntries || Pixels + width * height > MaxPixels))
             {
@@ -91,13 +93,20 @@ namespace TwilightInputOverlay
             while (Order.First is { } oldest) Remove(oldest);
         }
 
+        internal static long Rebuilt { get; private set; }
+        internal static long Destroyed { get; private set; }
+
         private static void Remove(LinkedListNode<Entry> node)
         {
             var entry = node.Value;
             Cache.Remove(entry.Key);
             Order.Remove(node);
             Pixels -= entry.Shape.Width * entry.Shape.Height;
-            if (entry.Shape.Texture != null) Object.Destroy(entry.Shape.Texture);
+            if (entry.Shape.Texture != null)
+            {
+                Destroyed++;
+                Object.Destroy(entry.Shape.Texture);
+            }
         }
 
         private static Texture2D Build(int radius, int rear, int width, int height, TextureRecovery recovery)

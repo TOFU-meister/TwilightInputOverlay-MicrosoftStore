@@ -170,3 +170,7 @@ Store 版は `0.x.x-pre` を使い、各プラグインで独立して進めま�
 - 移植元は [TwilightCup/TwilightInputOverlay v1.3.0](https://github.com/TwilightCup/TwilightInputOverlay/tree/b84b4d2bf0f8535f18e203c28e0491e8516b012c) です。
 - IL2CPP のコンポーネント起動と IMGUI の互換処理は [HSRTimer Microsoft Store](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/tree/0a5ba0d708aa0bc55559ebc6ed12c2a2a4d4bf70) を参考にしています。
 - [MIT License](LICENSE) · Copyright (c) 2026 TwilightCup
+
+### パフォーマンス診断
+
+設定の Debug から **Start overlay performance capture** で開始し、プレイ後に停止して **Export overlay-performance.csv** を押します。標準は OFF です。CSV はデータフォルダーに保存され、平均 FPS・3種類の描画時間・キャッシュ量を記録します。[HSRTimer と併用した比較手順](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/blob/dev/docs/store-performance-stage7.md)

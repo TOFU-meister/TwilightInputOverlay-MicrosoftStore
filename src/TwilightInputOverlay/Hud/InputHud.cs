@@ -36,6 +36,7 @@ namespace TwilightInputOverlay
         // the fade over instead of snapping. Rebuilt every Update from the
         // live layout, which also drops stale entries of deleted keys.
         private Dictionary<int, float> _fades = new Dictionary<int, float>();
+        private Dictionary<int, float> _nextFades = new Dictionary<int, float>();
 
         private static int FadeSlot(KeyEntry e, int half)
         {
@@ -63,8 +64,10 @@ namespace TwilightInputOverlay
             var cfg = ConfigService.Instance;
             if (cfg == null) return;
 
+            OverlayPerformance.Sample(cfg.Settings);
             float speed = cfg.Settings.FadeSpeed;
-            var next = new Dictionary<int, float>();
+            var next = _nextFades;
+            next.Clear();
 
             foreach (var row in cfg.Settings.Rows)
             {
@@ -84,6 +87,7 @@ namespace TwilightInputOverlay
                 }
             }
 
+            _nextFades = _fades;
             _fades = next;
         }
 
@@ -112,6 +116,7 @@ namespace TwilightInputOverlay
 
             var s = cfg.Settings;
             if (!s.ShowHud) return;
+            using var measurement = new OverlayPerformance.Measurement(0);
 
             var rows = s.Rows;
             if (rows == null || rows.Count == 0) return;

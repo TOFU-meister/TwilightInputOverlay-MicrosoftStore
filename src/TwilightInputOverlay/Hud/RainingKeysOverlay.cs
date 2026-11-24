@@ -41,7 +41,6 @@ namespace TwilightInputOverlay
 
         private void OnDestroy() => RainBarTextureCache.Release();
 
-        private bool _roundedDrawingFailed;
         private bool _barDrawingFailed;
 
         /// <summary>
@@ -348,7 +347,7 @@ namespace TwilightInputOverlay
         {
             if (_barDrawingFailed) return;
 
-            if (!_roundedDrawingFailed && radius > 0f)
+            if (OverlayTexture.Rain.CanAttempt && radius > 0f)
             {
                 try
                 {
@@ -361,8 +360,8 @@ namespace TwilightInputOverlay
                 }
                 catch (Exception error)
                 {
-                    _roundedDrawingFailed = true;
-                    Plugin.Logger.LogWarning($"[RainingKeys] Rounded bars unavailable; using rectangles: {error}");
+                    OverlayTexture.Rain.Fail(error);
+                    RainBarTextureCache.Release();
                 }
             }
 

@@ -7,5 +7,7 @@
     <Compile Include="../../src/TwilightInputOverlay/Hud/RoundedRectTextureCache.cs" Link="RoundedRectTextureCache.cs" />
     <Compile Include="../../src/TwilightInputOverlay/Hud/RainBarGeometry.cs" Link="RainBarGeometry.cs" />
     <Compile Include="../../src/TwilightInputOverlay/Hud/RainBarTextureCache.cs" Link="RainBarTextureCache.cs" />
+    <Compile Include="../../src/TwilightInputOverlay/Hud/TextureRecovery.cs" />
+    <Compile Include="../../src/TwilightInputOverlay/Hud/CursorShapeTextureCache.cs" />
   </ItemGroup>
 </Project>

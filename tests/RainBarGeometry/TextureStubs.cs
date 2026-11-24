@@ -4,6 +4,8 @@ namespace UnityEngine
 {
     public static class Mathf
     {
+        public static float Max(float a, float b) => Math.Max(a, b);
+        public static float Sqrt(float value) => MathF.Sqrt(value);
         public static int Min(int a, int b) => Math.Min(a, b);
         public static float Min(float a, float b) => Math.Min(a, b);
         public static float Clamp(float value, float min, float max) => Math.Clamp(value, min, max);
@@ -51,19 +53,26 @@ namespace UnityEngine
 
 namespace TwilightInputOverlay
 {
+    internal static class Plugin
+    {
+        internal static readonly TestLogger Logger = new();
+        internal sealed class TestLogger { public void LogWarning(string message) { } }
+    }
+
     internal static class OverlayTexture
     {
         public const int MaxDimension = 1024;
         public static bool FailUpload { get; set; }
         public static bool CanBake(int width, int height) => width > 0 && height > 0;
-        public static bool CanBakeKeyMask { get; set; } = true;
+        public static readonly TextureRecovery Keys = new("Keys");
+        public static readonly TextureRecovery Rain = new("Rain");
         public static UnityEngine.Color32 Pixel(UnityEngine.Color color) => new()
         {
             r = (byte)(color.R * 255f), g = (byte)(color.G * 255f),
             b = (byte)(color.B * 255f), a = (byte)(color.A * 255f),
         };
 
-        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels, bool keyMask = false)
-            => FailUpload ? null : new UnityEngine.Texture2D { Pixels = keyMask ? pixels : null };
+        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels, TextureRecovery recovery)
+            => FailUpload ? null : new UnityEngine.Texture2D { Pixels = pixels };
     }
 }

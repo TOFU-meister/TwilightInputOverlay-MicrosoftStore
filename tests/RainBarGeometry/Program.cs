@@ -163,3 +163,62 @@ RoundedRectTextureCache.ReleaseKeyMasks();
 RoundedRectTextureCache.ReleaseKeyMasks();
 Check(RoundedRectTextureCache.FillCacheCount == 0 && leftMask.Destroyed, "teardown releases masks");
 Console.WriteLine("Key mask checks passed (split geometry, live reuse, invalid textures and both eviction limits).");
+
+long now = 0;
+int warnings = 0;
+var trailRecovery = new TextureRecovery("Trail", () => now, _ => warnings++);
+var circleRecovery = new TextureRecovery("Circle", () => now, _ => warnings++);
+var trail = CursorShapeTextureCache.Get(12, 34, trailRecovery);
+var circle = CursorShapeTextureCache.Get(12, 12, circleRecovery);
+Check(trail.Width == 50 && trail.Height == 28 && trail.CenterX == 36 && trail.CenterY == 14,
+    "padded trail dimensions available without native size getters");
+int yCenter = trail.CenterY * trail.Width;
+Check(trail.Texture.Pixels[yCenter + 10].a == 255 && trail.Texture.Pixels[yCenter + trail.CenterX].a == 255
+    && trail.Texture.Pixels[yCenter].a == 0, "single trail/circle union has a solid core and padding");
+Check(circle.Width == circle.Height, "no extension gives a circle");
+
+for (int i = 0; i < 300; i++)
+{
+    CursorShapeTextureCache.Get(12, 40 + i, trailRecovery);
+    Check(ReferenceEquals(trail.Texture, CursorShapeTextureCache.Get(12, 34, trailRecovery).Texture),
+        "recently used shapes survive churn");
+}
+Check(CursorShapeTextureCache.Count == CursorShapeTextureCache.MaxEntries && circle.Texture.Destroyed,
+    "least-recent shapes evicted individually");
+UnityEngine.Object.Destroy(trail.Texture);
+OverlayTexture.FailUpload = true;
+Check(CursorShapeTextureCache.Get(12, 34, trailRecovery).Texture == null,
+    "destroyed texture removed even if upload fails");
+OverlayTexture.FailUpload = false;
+var rebuiltCursor = CursorShapeTextureCache.Get(12, 34, trailRecovery);
+Check(rebuiltCursor.Texture != null && !ReferenceEquals(trail.Texture, rebuiltCursor.Texture), "destroyed cursor replaced");
+CursorShapeTextureCache.Invalidate(12, 34);
+Check(rebuiltCursor.Texture.Destroyed, "failed draw can discard its own shape");
+
+trailRecovery.Fail(new NullReferenceException("simulated native draw"));
+Check(!trailRecovery.CanAttempt && circleRecovery.CanAttempt && OverlayTexture.Rain.CanAttempt && OverlayTexture.Keys.CanAttempt,
+    "trail failure does not affect circle, rain or keys");
+Check(CursorShapeTextureCache.Get(12, 34, trailRecovery).Texture == null
+    && CursorShapeTextureCache.Get(12, 12, circleRecovery).Texture != null, "circle remains available on cooldown");
+now += 4999;
+Check(!trailRecovery.CanAttempt, "cooldown does not retry immediately");
+now++;
+Check(trailRecovery.CanAttempt && CursorShapeTextureCache.Get(12, 34, trailRecovery).Texture != null,
+    "transient failure retries after five seconds");
+trailRecovery.Fail(new MissingMethodException("simulated stripped upload"));
+now += 10000;
+Check(!trailRecovery.CanAttempt && trailRecovery.Unsupported && trailRecovery.Failures == 2 && warnings == 1,
+    "permanent failure stops retry and does not spam warnings");
+
+for (int i = 0; i < 6; i++)
+{
+    var extreme = CursorShapeTextureCache.Get(int.MaxValue - i - 16, int.MaxValue, circleRecovery);
+    Check(extreme.Width == OverlayTexture.MaxDimension && extreme.Height == OverlayTexture.MaxDimension,
+        "oversized inputs clamp before allocation");
+    CursorShapeTextureCache.Get(CursorShapeTextureCache.MaxRadius - i - 1, int.MaxValue, circleRecovery);
+    Check(CursorShapeTextureCache.Pixels <= CursorShapeTextureCache.MaxPixels, "cursor pixel limit");
+}
+CursorShapeTextureCache.Release();
+CursorShapeTextureCache.Release();
+Check(CursorShapeTextureCache.Count == 0 && CursorShapeTextureCache.Pixels == 0, "repeated teardown is safe");
+Console.WriteLine("Cursor mask checks passed (geometry, reuse, teardown, both budgets, failure recovery and isolation).");

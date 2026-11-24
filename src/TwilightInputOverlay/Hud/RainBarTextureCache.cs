@@ -31,7 +31,7 @@ namespace TwilightInputOverlay
             int shapeHeight = Math.Max(1, Mathf.RoundToInt(height));
             int pixelWidth = Math.Min(shapeWidth, OverlayTexture.MaxDimension);
             int pixelHeight = Math.Min(shapeHeight, OverlayTexture.MaxDimension);
-            if (!OverlayTexture.CanBake(pixelWidth, pixelHeight)) return null;
+            if (!OverlayTexture.Rain.CanAttempt || !OverlayTexture.CanBake(pixelWidth, pixelHeight)) return null;
 
             int radiusSteps = Mathf.RoundToInt(radius * RadiusStepsPerPixel);
             if (radiusSteps == 0) return null;
@@ -64,7 +64,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels);
+            var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels, OverlayTexture.Rain);
             if (texture == null) return null;
             Bakes++;
 

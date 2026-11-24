@@ -23,57 +23,85 @@ namespace TwilightInputOverlay
         /// <summary>Transparent padding around the shape, in pixels, for anti-aliasing.</summary>
         public const int Pad = 2;
 
-        private struct ShapeKey
+        internal const int MaxRadius = (OverlayTexture.MaxDimension - Pad * 2) / 2;
+        internal const int MaxEntries = 32;
+        internal const int MaxPixels = 2 * 1024 * 1024;
+
+        private readonly record struct ShapeKey(int Radius, int Rear);
+        internal readonly record struct Shape(Texture2D Texture, int Width, int Height, int CenterX, int CenterY);
+        private readonly record struct Entry(ShapeKey Key, Shape Shape);
+        private static readonly Dictionary<ShapeKey, LinkedListNode<Entry>> Cache = new();
+        private static readonly LinkedList<Entry> Order = new();
+
+        internal static int Count => Cache.Count;
+        internal static int Pixels { get; private set; }
+        internal static int Bakes { get; private set; }
+        internal static int Evictions { get; private set; }
+        internal static int Invalidated { get; private set; }
+
+        internal static int LimitRear(int radius, int rear)
+            => System.Math.Clamp(rear, radius, OverlayTexture.MaxDimension - radius - Pad * 2);
+
+        internal static Shape Get(int radius, int rear, TextureRecovery recovery)
         {
-            public int Radius;
-            public int Rear;
+            if (!recovery.CanAttempt) return default;
+            radius = System.Math.Clamp(radius, 1, MaxRadius);
+            rear = LimitRear(radius, rear);
+            var key = new ShapeKey(radius, rear);
+            if (Cache.TryGetValue(key, out var node))
+            {
+                if (node.Value.Shape.Texture != null)
+                {
+                    Order.Remove(node);
+                    Order.AddLast(node);
+                    return node.Value.Shape;
+                }
+                Invalidated++;
+                Remove(node);
+            }
+
+            int width = rear + radius + Pad * 2;
+            int height = radius * 2 + Pad * 2;
+            var tex = Build(radius, rear, width, height, recovery);
+            if (tex == null) return default;
+
+            while (Order.First is { } oldest && (Count >= MaxEntries || Pixels + width * height > MaxPixels))
+            {
+                Remove(oldest);
+                Evictions++;
+            }
+            var shape = new Shape(tex, width, height, Pad + rear, Pad + radius);
+            Cache.Add(key, Order.AddLast(new Entry(key, shape)));
+            Pixels += width * height;
+            Bakes++;
+            return shape;
         }
 
-        private static readonly Dictionary<ShapeKey, Texture2D> Cache = new Dictionary<ShapeKey, Texture2D>();
-        private const int MaxEntries = 32;
-
-        /// <summary>X offset of the circle centre inside a texture built for the given rear extent.</summary>
-        public static int CenterX(int rear) => Pad + rear;
-
-        /// <summary>Y offset of the circle centre inside a texture built for the given radius.</summary>
-        public static int CenterY(int radius) => Pad + radius;
-
-        /// <summary>
-        /// Get (or build) the silhouette for the given circle radius and rear
-        /// extent. <paramref name="rear"/> is clamped to at least
-        /// <paramref name="radius"/>.
-        /// </summary>
-        public static Texture2D Get(int radius, int rear)
+        internal static void Invalidate(int radius, int rear)
         {
-            radius = Mathf.Max(1, radius);
-            rear = Mathf.Max(radius, rear);
-
-            var key = new ShapeKey { Radius = radius, Rear = rear };
-            Texture2D tex;
-            if (Cache.TryGetValue(key, out tex) && tex != null)
-                return tex;
-
-            if (Cache.Count >= MaxEntries)
-                Release();
-            tex = Build(radius, rear);
-            if (tex != null) Cache[key] = tex;
-            return tex;
+            if (Cache.TryGetValue(new ShapeKey(radius, rear), out var node))
+            {
+                Invalidated++;
+                Remove(node);
+            }
         }
 
         internal static void Release()
         {
-            foreach (var texture in Cache.Values)
-                Object.Destroy(texture);
-            Cache.Clear();
+            while (Order.First is { } oldest) Remove(oldest);
         }
 
-        private static Texture2D Build(int radius, int rear)
+        private static void Remove(LinkedListNode<Entry> node)
         {
-            int width = rear + radius + Pad * 2;
-            int height = radius * 2 + Pad * 2;
+            var entry = node.Value;
+            Cache.Remove(entry.Key);
+            Order.Remove(node);
+            Pixels -= entry.Shape.Width * entry.Shape.Height;
+            if (entry.Shape.Texture != null) Object.Destroy(entry.Shape.Texture);
+        }
 
-            if (!OverlayTexture.CanBake(width, height)) return null;
-
+        private static Texture2D Build(int radius, int rear, int width, int height, TextureRecovery recovery)
+        {
             // The circle centre sits `rear` from the left edge so the rear
             // half-ellipse (which reaches dx = -rear) always fits in the texture.
             float cx = Pad + rear;
@@ -101,7 +129,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            return OverlayTexture.Upload(width, height, pixels);
+            return OverlayTexture.Upload(width, height, pixels, recovery);
         }
 
         private static float CircleCoverage(float dx, float dy, float radius)

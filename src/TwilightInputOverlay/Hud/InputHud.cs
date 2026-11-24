@@ -118,7 +118,7 @@ namespace TwilightInputOverlay
 
             float cell = Mathf.Max(8f, 56f * s.Scale);
             float spacing = Mathf.Max(0f, s.Spacing * s.Scale);
-            int radius = s.CornerRadius > 0f && OverlayTexture.CanBakeKeyMask ? Mathf.Max(1, Mathf.RoundToInt(s.CornerRadius * s.Scale)) : 0;
+            int radius = s.CornerRadius > 0f && OverlayTexture.Keys.CanAttempt ? Mathf.Max(1, Mathf.RoundToInt(s.CornerRadius * s.Scale)) : 0;
             int borderWidth = Mathf.Max(0, Mathf.RoundToInt(2f * s.Scale));
 
             // Bottom-left anchored: (OffsetX, OffsetY) from the bottom-left corner.
@@ -225,7 +225,7 @@ namespace TwilightInputOverlay
 
         private static bool TryDrawMask(Rect rect, Color color, Texture2D mask)
         {
-            if (mask == null || !OverlayTexture.CanBakeKeyMask) return false;
+            if (mask == null || !OverlayTexture.Keys.CanAttempt) return false;
             try
             {
                 DrawFill(rect, color, mask);
@@ -233,7 +233,7 @@ namespace TwilightInputOverlay
             }
             catch (System.Exception error)
             {
-                OverlayTexture.DeferKeyMasks(error);
+                OverlayTexture.Keys.Fail(error);
                 RoundedRectTextureCache.ReleaseKeyMasks();
                 return false;
             }

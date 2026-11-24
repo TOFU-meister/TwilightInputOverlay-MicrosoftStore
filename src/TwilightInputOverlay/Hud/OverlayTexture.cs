@@ -8,15 +8,14 @@ namespace TwilightInputOverlay
     internal static class OverlayTexture
     {
         internal const int MaxDimension = 1024;
-        private static bool _uploadFailed;
-        private static long _keyMaskRetryAfter;
-        private static bool _keyMaskFailureLogged;
+        internal static readonly TextureRecovery Keys = new("key masks");
+        internal static readonly TextureRecovery Rain = new("Raining Keys masks");
+        internal static readonly TextureRecovery CursorTrail = new("mouse trail masks");
+        internal static readonly TextureRecovery CursorCircle = new("mouse circle masks");
+        internal static readonly TextureRecovery CursorRectangle = new("mouse rectangles");
 
         internal static bool CanBake(int width, int height)
-            => !_uploadFailed && width > 0 && width <= MaxDimension
-                && height > 0 && height <= MaxDimension;
-
-        internal static bool CanBakeKeyMask => Environment.TickCount64 >= _keyMaskRetryAfter;
+            => width > 0 && width <= MaxDimension && height > 0 && height <= MaxDimension;
 
         internal static Color32 Pixel(Color color) => new Color32
         {
@@ -28,40 +27,26 @@ namespace TwilightInputOverlay
 
         private static byte ToByte(float value) => (byte)(Math.Clamp(value, 0f, 1f) * 255f);
 
-        internal static Texture2D Upload(int width, int height, Color32[] pixels, bool keyMask = false)
+        internal static Texture2D Upload(int width, int height, Color32[] pixels, TextureRecovery recovery)
         {
             Texture2D texture = null;
             try
             {
                 texture = CreateTexture(width, height);
-                if (keyMask) KeepKeyMaskAlive(texture);
+                KeepMaskAlive(texture);
                 UploadPixels(texture, pixels);
                 return texture;
             }
             catch (Exception error)
             {
                 if (texture != null) UnityEngine.Object.Destroy(texture);
-                if (keyMask)
-                    DeferKeyMasks(error);
-                else
-                {
-                    _uploadFailed = true;
-                    Plugin.Logger.LogWarning($"TwilightInputOverlay: texture upload unavailable; using rectangular rendering: {error}");
-                }
+                recovery.Fail(error);
                 return null;
             }
         }
 
-        internal static void DeferKeyMasks(Exception error)
-        {
-            _keyMaskRetryAfter = Environment.TickCount64 + 5000;
-            if (_keyMaskFailureLogged) return;
-            _keyMaskFailureLogged = true;
-            Plugin.Logger.LogWarning($"TwilightInputOverlay: key mask unavailable; temporarily using rectangular keys: {error}");
-        }
-
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void KeepKeyMaskAlive(Texture2D texture)
+        private static void KeepMaskAlive(Texture2D texture)
             => texture.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
         [MethodImpl(MethodImplOptions.NoInlining)]

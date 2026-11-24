@@ -77,6 +77,19 @@ namespace TwilightInputOverlay
 
         private Vector2 _prevMousePos;
         private bool _hasPrevMousePos;
+        private long _nextDiagnostics;
+        private string _drawMode = "hidden";
+
+        private void OnApplicationFocus(bool focused)
+        {
+            _hasPrevMousePos = false;
+            if (!focused)
+            {
+                _velocity = Vector2.zero;
+                _stretch = 1f;
+                _reversalHold = 0f;
+            }
+        }
 
         private void Update()
         {
@@ -104,11 +117,16 @@ namespace TwilightInputOverlay
             }
 
             float dt = Time.deltaTime;
-            if (dt <= 0f) dt = Time.unscaledDeltaTime;
-            if (dt <= 0f) dt = 1f / 60f;
+            if (!float.IsFinite(dt) || dt <= 0f) dt = Time.unscaledDeltaTime;
+            if (!float.IsFinite(dt) || dt <= 0f) dt = 1f / 60f;
+            dt = Mathf.Max(0.0001f, dt);
 
             Vector2 delta = ReadMouseDelta(s);
+            if (!float.IsFinite(delta.x) || !float.IsFinite(delta.y))
+                delta = Vector2.zero;
             _pos += delta;
+            if (!float.IsFinite(_pos.x) || !float.IsFinite(_pos.y))
+                _pos = region.center;
 
             ApplyExitPolicy(ref _pos, region, s.CursorWrap, s.CursorClamp);
 
@@ -131,42 +149,79 @@ namespace TwilightInputOverlay
 
             if (s.ShowCursor && _initialized)
                 DrawCursor(s);
+            else
+                _drawMode = "hidden";
+
+            if (s.DebugInfo && System.Environment.TickCount64 >= _nextDiagnostics)
+            {
+                _nextDiagnostics = System.Environment.TickCount64 + 5000;
+                Plugin.Logger.LogInfo($"[MouseOverlay] mode={_drawMode}, masks={CursorShapeTextureCache.Count}, "
+                    + $"pixels={CursorShapeTextureCache.Pixels}, bakes={CursorShapeTextureCache.Bakes}, "
+                    + $"evictions={CursorShapeTextureCache.Evictions}, invalidated={CursorShapeTextureCache.Invalidated}, "
+                    + $"failures={OverlayTexture.CursorTrail.Failures}/{OverlayTexture.CursorCircle.Failures}/{OverlayTexture.CursorRectangle.Failures}");
+            }
         }
 
         private static void DrawRegion(Rect region, Color color)
         {
+            if (!OverlayTexture.CursorRectangle.CanAttempt) return;
             Color prev = GUI.color;
-            GUI.color = color;
-            GUI.DrawTexture(region, Texture2D.whiteTexture);
-            GUI.color = prev;
+            try
+            {
+                GUI.color = color;
+                var texture = Texture2D.whiteTexture;
+                if (texture != null) GUI.DrawTexture(region, texture);
+            }
+            catch (System.Exception error)
+            {
+                OverlayTexture.CursorRectangle.Fail(error);
+            }
+            finally { GUI.color = prev; }
         }
 
         [HideFromIl2Cpp]
         private void DrawCursor(SettingsModel s)
         {
-            int radius = Mathf.RoundToInt(Mathf.Clamp(s.CursorRadius, 1f, OverlayTexture.MaxDimension / 2f));
-            int rear = Mathf.RoundToInt(Mathf.Clamp(radius * _stretch, radius, OverlayTexture.MaxDimension));
-            Texture2D tex = CursorShapeTextureCache.Get(radius, rear);
-
-            if (tex == null)
+            int radius = Mathf.RoundToInt(Mathf.Clamp(FiniteOr(s.CursorRadius, 1f), 1f, CursorShapeTextureCache.MaxRadius));
+            int rear = CursorShapeTextureCache.LimitRear(radius,
+                Mathf.RoundToInt(Mathf.Clamp(radius * FiniteOr(_stretch, 1f), radius, OverlayTexture.MaxDimension)));
+            if (rear > radius && TryDrawMask(radius, rear, s.CursorColor, OverlayTexture.CursorTrail))
             {
-                DrawRegion(new Rect(_pos.x - radius, _pos.y - radius, radius * 2, radius * 2), s.CursorColor);
+                _drawMode = "trail";
                 return;
             }
 
-            // Place the texture so its circle centre lands on _pos; the trail
-            // extends to the left of the centre inside the texture.
-            float xOrigin = CursorShapeTextureCache.CenterX(rear);
-            float yOrigin = CursorShapeTextureCache.CenterY(radius);
-            var rect = new Rect(_pos.x - xOrigin, _pos.y - yOrigin, tex.width, tex.height);
+            if (TryDrawMask(radius, radius, s.CursorColor, OverlayTexture.CursorCircle))
+            {
+                _drawMode = "circle";
+                return;
+            }
 
+            _drawMode = OverlayTexture.CursorRectangle.CanAttempt ? "rectangle" : "paused";
+            DrawRegion(new Rect(_pos.x - radius, _pos.y - radius, radius * 2, radius * 2), s.CursorColor);
+        }
+
+        [HideFromIl2Cpp]
+        private bool TryDrawMask(int radius, int rear, Color color, TextureRecovery recovery)
+        {
+            if (!recovery.CanAttempt) return false;
             Matrix4x4 prevMatrix = GUI.matrix;
             Color prevColor = GUI.color;
             try
             {
-                GUIUtility.RotateAroundPivot(_angle, _pos);
-                GUI.color = s.CursorColor;
-                GUI.DrawTexture(rect, tex);
+                var shape = CursorShapeTextureCache.Get(radius, rear, recovery);
+                if (shape.Texture == null) return false;
+                if (rear > radius) GUIUtility.RotateAroundPivot(_angle, _pos);
+                GUI.color = color;
+                GUI.DrawTexture(new Rect(_pos.x - shape.CenterX, _pos.y - shape.CenterY, shape.Width, shape.Height),
+                    shape.Texture);
+                return true;
+            }
+            catch (System.Exception error)
+            {
+                recovery.Fail(error);
+                CursorShapeTextureCache.Invalidate(radius, rear);
+                return false;
             }
             finally
             {
@@ -175,10 +230,20 @@ namespace TwilightInputOverlay
             }
         }
 
+        private static float FiniteOr(float value, float fallback) => float.IsFinite(value) ? value : fallback;
+
         private void UpdateTrail(Vector2 delta, float dt, float radius, float maxStretch, float response)
         {
             Vector2 instantVelocity = delta / dt;
             float speed = instantVelocity.magnitude;
+            if (!float.IsFinite(speed))
+            {
+                _velocity = Vector2.zero;
+                _stretch = 1f;
+                return;
+            }
+            maxStretch = FiniteOr(maxStretch, 1f);
+            response = FiniteOr(response, 0f);
 
             UpdateHeading(instantVelocity, speed, dt);
 
@@ -266,10 +331,10 @@ namespace TwilightInputOverlay
         private static Rect RegionOf(SettingsModel s)
         {
             // Bottom-right anchored: X/Y are distances from the right/bottom edges.
-            float w = Mathf.Max(1f, s.CursorRegionWidth);
-            float h = Mathf.Max(1f, s.CursorRegionHeight);
-            float right = Screen.width - s.CursorRegionX;
-            float bottom = Screen.height - s.CursorRegionY;
+            float w = Mathf.Max(1f, FiniteOr(s.CursorRegionWidth, 1f));
+            float h = Mathf.Max(1f, FiniteOr(s.CursorRegionHeight, 1f));
+            float right = Screen.width - FiniteOr(s.CursorRegionX, 0f);
+            float bottom = Screen.height - FiniteOr(s.CursorRegionY, 0f);
             return new Rect(right - w, bottom - h, w, h);
         }
 

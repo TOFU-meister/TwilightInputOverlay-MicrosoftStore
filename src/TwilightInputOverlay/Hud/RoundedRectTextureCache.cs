@@ -46,7 +46,7 @@ namespace TwilightInputOverlay
             }
 
             int pixelWidth = part == Mask.Left || part == Mask.Right ? (width + 1) / 2 : width;
-            if (!OverlayTexture.CanBakeKeyMask) return null;
+            if (!OverlayTexture.Keys.CanAttempt) return null;
             var texture = border
                 ? BuildBorderMask(width, height, radius, borderWidth)
                 : BuildFillMask(width, height, radius, part, pixelWidth);
@@ -95,7 +95,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            return OverlayTexture.Upload(pixelWidth, height, pixels, keyMask: true);
+            return OverlayTexture.Upload(pixelWidth, height, pixels, OverlayTexture.Keys);
         }
 
         private static Texture2D BuildBorderMask(int width, int height, int radius, int borderWidth)
@@ -125,7 +125,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            return OverlayTexture.Upload(width, height, pixels, keyMask: true);
+            return OverlayTexture.Upload(width, height, pixels, OverlayTexture.Keys);
         }
 
         private static bool ShapeCoverage(float px, float py, int width, int height, int radius, out float coverage)

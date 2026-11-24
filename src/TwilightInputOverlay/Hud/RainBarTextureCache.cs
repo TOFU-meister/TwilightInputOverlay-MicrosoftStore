@@ -6,12 +6,12 @@ namespace TwilightInputOverlay
 {
     internal static class RainBarTextureCache
     {
-        // Keep recently used heights for the next press and share identical
-        // masks across slots. Tint and screen location do not affect the mask.
+        // The middle of the mask stretches independently of its end caps.
+        // Only the configured width and width-limited radius affect the asset.
         private const int Capacity = 96;
         private const int MaxCachedPixels = 2 * 1024 * 1024;
         private const int RadiusStepsPerPixel = 8;
-        private readonly record struct CacheKey(int Width, int Height, int Radius);
+        private readonly record struct CacheKey(int Width, int Radius);
         private readonly record struct CacheEntry(CacheKey Key, Texture2D Texture, int PixelCount);
 
         private static readonly Dictionary<CacheKey, LinkedListNode<CacheEntry>> Cache = new();
@@ -26,33 +26,43 @@ namespace TwilightInputOverlay
         internal static long Rebuilt { get; private set; }
         internal static long Destroyed { get; private set; }
         internal static long InvalidHits { get; private set; }
+        internal static long Hits { get; private set; }
+        internal static long Misses { get; private set; }
 
-        internal static Texture2D Get(float width, float height, float requestedRadius)
+        internal readonly record struct Mask(Texture2D Texture, int ShapeWidth, int ShapeHeight, float Radius);
+
+        internal static Mask Get(float width, float requestedRadius)
         {
-            float radius = RainBarGeometry.Radius(width, height, requestedRadius);
-            if (radius <= 0f) return null;
+            if (!float.IsFinite(width) || !float.IsFinite(requestedRadius) || width <= 0f || requestedRadius <= 0f
+                || !OverlayTexture.Rain.CanAttempt) return default;
 
-            int shapeWidth = Math.Max(1, Mathf.RoundToInt(width));
-            int shapeHeight = Math.Max(1, Mathf.RoundToInt(height));
+            int shapeWidth = Math.Max(1, Mathf.RoundToInt(Math.Min(width, 16f * OverlayTexture.MaxDimension)));
+            int radiusSteps = Mathf.RoundToInt(Math.Min(requestedRadius, shapeWidth * 0.5f) * RadiusStepsPerPixel);
+            if (radiusSteps == 0) return default;
+            float maskRadius = Math.Min(shapeWidth * 0.5f, radiusSteps / (float)RadiusStepsPerPixel);
+            // Include an opaque centre row separated from both curved caps.
+            int shapeHeight = 2 * (int)MathF.Ceiling(maskRadius) + 1;
+            int pixelHeight = Math.Min(OverlayTexture.MaxDimension, shapeHeight);
             int pixelWidth = Math.Min(shapeWidth, OverlayTexture.MaxDimension);
-            int pixelHeight = Math.Min(shapeHeight, OverlayTexture.MaxDimension);
-            if (!OverlayTexture.Rain.CanAttempt || !OverlayTexture.CanBake(pixelWidth, pixelHeight)) return null;
+            if (!OverlayTexture.CanBake(pixelWidth, pixelHeight)) return default;
 
-            int radiusSteps = Mathf.RoundToInt(radius * RadiusStepsPerPixel);
-            if (radiusSteps == 0) return null;
-            var key = new CacheKey(shapeWidth, shapeHeight, radiusSteps);
+            var key = new CacheKey(shapeWidth, radiusSteps);
             bool replacing = Cache.TryGetValue(key, out var existing);
             if (replacing)
             {
                 if (existing.Value.Texture != null)
-                    return existing.Value.Texture;
+                {
+                    Hits++;
+                    Order.Remove(existing);
+                    Order.AddLast(existing);
+                    return new Mask(existing.Value.Texture, shapeWidth, shapeHeight, maskRadius);
+                }
 
                 InvalidHits++;
                 Remove(existing);
             }
 
-            float maskRadius = RainBarGeometry.Radius(shapeWidth, shapeHeight,
-                radiusSteps / (float)RadiusStepsPerPixel);
+            Misses++;
             float sampleWidth = (float)shapeWidth / pixelWidth;
             float sampleHeight = (float)shapeHeight / pixelHeight;
             var pixels = new Color32[pixelWidth * pixelHeight];
@@ -72,7 +82,7 @@ namespace TwilightInputOverlay
             }
 
             var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels, OverlayTexture.Rain);
-            if (texture == null) return null;
+            if (texture == null) return default;
             if (replacing) Rebuilt++;
             Bakes++;
 
@@ -85,7 +95,7 @@ namespace TwilightInputOverlay
             var node = Order.AddLast(new CacheEntry(key, texture, pixels.Length));
             Cache.Add(key, node);
             _cachedPixels += pixels.Length;
-            return texture;
+            return new Mask(texture, shapeWidth, shapeHeight, maskRadius);
         }
 
         private static void Remove(LinkedListNode<CacheEntry> node)

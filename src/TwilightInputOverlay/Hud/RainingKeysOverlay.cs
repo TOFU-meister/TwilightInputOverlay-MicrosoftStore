@@ -42,6 +42,8 @@ namespace TwilightInputOverlay
         private void OnDestroy() => RainBarTextureCache.Release();
 
         private bool _barDrawingFailed;
+        internal static long TextureDraws { get; private set; }
+        internal static long RoundedFallbacks { get; private set; }
 
         /// <summary>
         /// One active bar. Screen/GUI Y grows downward, so "up" is smaller Y.
@@ -345,8 +347,7 @@ namespace TwilightInputOverlay
                 if (height <= 0f) continue;
                 var rect = new Rect(centerX - width * 0.5f, bar.TopY - regionTop, width, height);
 
-                // Draw the complete mask once. BeginGroup clips the resulting
-                // shape without stretching or adding a new rounded edge.
+                // BeginGroup clips the combined shape without adding an end cap.
                 DrawBar(rect, radius);
                 if (_barDrawingFailed) return;
             }
@@ -358,26 +359,46 @@ namespace TwilightInputOverlay
 
             if (OverlayTexture.Rain.CanAttempt && radius > 0f)
             {
+                int submitted = 0;
                 try
                 {
-                    var mask = RainBarTextureCache.Get(rect.width, rect.height, radius);
-                    if (mask != null)
+                    var mask = RainBarTextureCache.Get(rect.width, radius);
+                    if (mask.Texture != null)
                     {
-                        GUI.DrawTexture(rect, mask);
-                        return;
+                        Span<RainBarGeometry.Slice> slices = stackalloc RainBarGeometry.Slice[9];
+                        int count = RainBarGeometry.Slices(rect.width, rect.height, radius, mask.Radius,
+                            mask.ShapeWidth, mask.ShapeHeight, slices);
+                        for (; submitted < count; submitted++)
+                        {
+                            var slice = slices[submitted];
+                            GUI.DrawTextureWithTexCoords(
+                                new Rect(rect.x + slice.X, rect.y + slice.Y, slice.Width, slice.Height),
+                                mask.Texture, new Rect(slice.U, slice.V, slice.UWidth, slice.VHeight), true);
+                            TextureDraws++;
+                        }
+                        if (submitted > 0) return;
                     }
                 }
                 catch (Exception error)
                 {
                     OverlayTexture.Rain.Fail(error);
                     RainBarTextureCache.Release();
+                    // The following bars can fall back immediately. Do not
+                    // paint over already submitted translucent slices.
+                    if (submitted > 0) return;
                 }
             }
+
+            if (radius > 0f) RoundedFallbacks++;
 
             try
             {
                 var white = Texture2D.whiteTexture;
-                if (white != null) GUI.DrawTexture(rect, white);
+                if (white != null)
+                {
+                    GUI.DrawTexture(rect, white);
+                    TextureDraws++;
+                }
             }
             catch (Exception error)
             {

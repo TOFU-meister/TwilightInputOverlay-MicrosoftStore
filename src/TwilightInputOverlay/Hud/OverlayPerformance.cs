@@ -15,7 +15,7 @@ namespace TwilightInputOverlay
         private const string Header = "utc,uptime_s,scene,key_visible,rain_enabled,mouse_visible,mouse_region_visible,frames,fps,"
             + "key_draws,key_total_ms,rain_draws,rain_total_ms,mouse_draws,mouse_total_ms,"
             + "key_count,key_pixels,key_created,key_destroy_requested,key_invalid_hits,key_rebuilt,"
-            + "rain_count,rain_pixels,rain_created,rain_destroy_requested,rain_invalid_hits,rain_rebuilt,"
+            + "rain_count,rain_pixels,rain_created,rain_destroy_requested,rain_invalid_hits,rain_rebuilt,rain_mask_hits,rain_mask_misses,rain_texture_draws,rain_rounded_fallbacks,"
             + "mouse_count,mouse_pixels,mouse_created,mouse_destroy_requested,mouse_invalidations,mouse_rebuilt,collect_ms";
         private static Queue<string> _rows;
         private static readonly long[] Ticks = new long[3];
@@ -103,6 +103,7 @@ namespace TwilightInputOverlay
                 RoundedRectTextureCache.Destroyed, RoundedRectTextureCache.InvalidHits, RoundedRectTextureCache.Rebuilt,
                 RainBarTextureCache.Count, RainBarTextureCache.Pixels, RainBarTextureCache.Bakes,
                 RainBarTextureCache.Destroyed, RainBarTextureCache.InvalidHits, RainBarTextureCache.Rebuilt,
+                RainBarTextureCache.Hits, RainBarTextureCache.Misses, RainingKeysOverlay.TextureDraws, RainingKeysOverlay.RoundedFallbacks,
                 CursorShapeTextureCache.Count, CursorShapeTextureCache.Pixels, CursorShapeTextureCache.Bakes,
                 CursorShapeTextureCache.Destroyed, CursorShapeTextureCache.Invalidated, CursorShapeTextureCache.Rebuilt,
             };

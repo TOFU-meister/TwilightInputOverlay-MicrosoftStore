@@ -174,3 +174,5 @@ Store 版は `0.x.x-pre` を使い、各プラグインで独立して進めま�
 ### パフォーマンス診断
 
 設定の Debug から **Start overlay performance capture** で開始し、プレイ後に停止して **Export overlay-performance.csv** を押します。標準は OFF です。CSV はデータフォルダーに保存され、平均 FPS・3種類の描画時間・キャッシュ量を記録します。[HSRTimer と併用した比較手順](https://github.com/TOFU-meister/HSRTimer-MicrosoftStore/blob/dev/docs/store-performance-stage7.md)
+
+[Raining Keys の最適化と実機確認手順](docs/raining-keys-stage8.md)

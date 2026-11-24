@@ -170,10 +170,10 @@ namespace TwilightInputOverlay
             s.ShowHud = Toggle(loc.Get("SETTINGS_SHOW_HUD"), s.ShowHud);
             s.ShowKeyText = Toggle(loc.Get("SETTINGS_SHOW_KEY_TEXT"), s.ShowKeyText);
             s.KeyTextSize = SliderRow("SETTINGS_KEY_TEXT_SIZE", loc.Get("SETTINGS_KEY_TEXT_SIZE"), s.KeyTextSize, 0.1f, 1.5f);
-            s.KeyTextOffsetX = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_X"), s.KeyTextOffsetX, "0.##");
-            s.KeyTextOffsetY = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_Y"), s.KeyTextOffsetY, "0.##");
-            s.OffsetX = FloatFieldRow(loc.Get("PANEL_OFFSET_X"), s.OffsetX, "0.##");
-            s.OffsetY = FloatFieldRow(loc.Get("PANEL_OFFSET_Y"), s.OffsetY, "0.##");
+            s.KeyTextOffsetX = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_X"), s.KeyTextOffsetX);
+            s.KeyTextOffsetY = FloatFieldRow(loc.Get("SETTINGS_KEY_TEXT_OFFSET_Y"), s.KeyTextOffsetY);
+            s.OffsetX = FloatFieldRow(loc.Get("PANEL_OFFSET_X"), s.OffsetX);
+            s.OffsetY = FloatFieldRow(loc.Get("PANEL_OFFSET_Y"), s.OffsetY);
             s.Scale = SliderRow("PANEL_SCALE", loc.Get("PANEL_SCALE"), s.Scale, 0.1f, 3f);
 
             Section(loc.Get("PANEL_ANIMATION"));
@@ -225,10 +225,10 @@ namespace TwilightInputOverlay
             s.CursorRawInput = Toggle(loc.Get("SETTINGS_CURSOR_RAW_INPUT"), s.CursorRawInput);
             s.CursorClamp = Toggle(loc.Get("SETTINGS_CURSOR_CLAMP"), s.CursorClamp);
             s.CursorWrap = Toggle(loc.Get("SETTINGS_CURSOR_WRAP"), s.CursorWrap);
-            s.CursorRegionX = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_X"), s.CursorRegionX, "0.##");
-            s.CursorRegionY = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_Y"), s.CursorRegionY, "0.##");
-            s.CursorRegionWidth = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_W"), s.CursorRegionWidth, "0.##"));
-            s.CursorRegionHeight = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_H"), s.CursorRegionHeight, "0.##"));
+            s.CursorRegionX = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_X"), s.CursorRegionX);
+            s.CursorRegionY = FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_Y"), s.CursorRegionY);
+            s.CursorRegionWidth = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_W"), s.CursorRegionWidth));
+            s.CursorRegionHeight = Mathf.Max(1f, FloatFieldRow(loc.Get("PANEL_CURSOR_REGION_H"), s.CursorRegionHeight));
             ColorRow(loc, "PANEL_CURSOR_REGION_COLOR", s.CursorRegionColor, c => s.CursorRegionColor = c);
             s.CursorRadius = SliderRow("SETTINGS_CURSOR_RADIUS", loc.Get("SETTINGS_CURSOR_RADIUS"), s.CursorRadius, 2f, 64f);
             s.CursorSensitivity = SliderRow("SETTINGS_CURSOR_SENSITIVITY", loc.Get("SETTINGS_CURSOR_SENSITIVITY"), s.CursorSensitivity, 0.1f, 10f);
@@ -255,7 +255,7 @@ namespace TwilightInputOverlay
             s.RainingHeight = IntFieldRow(loc.Get("SETTINGS_RAINING_HEIGHT"), s.RainingHeight, "raining:height", 1, 500);
             s.RainingGap = IntFieldRow(loc.Get("SETTINGS_RAINING_GAP"), s.RainingGap, "raining:gap", 0, 200);
             s.RainingSpeed = IntFieldRow(loc.Get("SETTINGS_RAINING_SPEED"), s.RainingSpeed, "raining:speed", 0, 1000);
-            s.RainingWidth = Mathf.Max(0f, FloatFieldRow(loc.Get("SETTINGS_RAINING_WIDTH"), s.RainingWidth, "0.##"));
+            s.RainingWidth = Mathf.Max(0f, FloatFieldRow(loc.Get("SETTINGS_RAINING_WIDTH"), s.RainingWidth));
             s.RainingRadius = SliderRow("SETTINGS_RAINING_RADIUS", loc.Get("SETTINGS_RAINING_RADIUS"), s.RainingRadius, 0f, 24f);
             ColorRow(loc, "PANEL_RAINING_COLOR", s.RainingColor, c => s.RainingColor = c);
         }
@@ -528,34 +528,28 @@ namespace TwilightInputOverlay
                 float slider = GUILayout.HorizontalSlider(start, min, max);
                 if (slider != start)
                 {
-                    value = slider;
+                    value = Mathf.Clamp(SettingPrecision.Round(slider), min, max);
                     PanelTextInput.Cancel(key);
                 }
 
-                string display = value.ToString("R", CultureInfo.InvariantCulture);
-                string text = PanelTextInput.Draw(key, display, PanelStyles.TextField, GUILayout.Width(104));
-                if (text == display) return value;
-                float number = SettingsModel.ParseFloat(text, float.NaN);
-                if (!float.IsFinite(number)
-                    && (!float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out number)
-                        || !float.IsFinite(number)))
-                    return value;
-                return Mathf.Clamp(number, min, max);
+                string text = PanelTextInput.Draw(key, SettingPrecision.Display(value),
+                    PanelStyles.TextField, out bool committed, GUILayout.Width(104));
+                return committed && SettingPrecision.TryParse(text, out float number)
+                    ? Mathf.Clamp(number, min, max)
+                    : value;
             }
             finally { GUILayout.EndHorizontal(); }
         }
 
-        private static float FloatFieldRow(string label, float value, string format = "F0")
+        private static float FloatFieldRow(string label, float value)
         {
             GUILayout.BeginHorizontal();
             try
             {
-                string display = value.ToString(format);
-                string newText = PanelTextInput.Draw("float:" + label, display, PanelStyles.TextField, GUILayout.Width(70));
+                string text = PanelTextInput.Draw("float:" + label, SettingPrecision.Display(value),
+                    PanelStyles.TextField, out bool committed, GUILayout.Width(70));
                 GUILayout.Label(label, PanelStyles.Label);
-                float parsed;
-                if (newText != display && float.TryParse(newText, out parsed) && float.IsFinite(parsed)) return parsed;
-                return value;
+                return committed && SettingPrecision.TryParse(text, out float number) ? number : value;
             }
             finally { GUILayout.EndHorizontal(); }
         }

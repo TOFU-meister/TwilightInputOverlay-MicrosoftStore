@@ -9,10 +9,14 @@ namespace TwilightInputOverlay
     {
         internal const int MaxDimension = 1024;
         private static bool _uploadFailed;
+        private static long _keyMaskRetryAfter;
+        private static bool _keyMaskFailureLogged;
 
         internal static bool CanBake(int width, int height)
             => !_uploadFailed && width > 0 && width <= MaxDimension
                 && height > 0 && height <= MaxDimension;
+
+        internal static bool CanBakeKeyMask => Environment.TickCount64 >= _keyMaskRetryAfter;
 
         internal static Color32 Pixel(Color color) => new Color32
         {
@@ -24,23 +28,41 @@ namespace TwilightInputOverlay
 
         private static byte ToByte(float value) => (byte)(Math.Clamp(value, 0f, 1f) * 255f);
 
-        internal static Texture2D Upload(int width, int height, Color32[] pixels)
+        internal static Texture2D Upload(int width, int height, Color32[] pixels, bool keyMask = false)
         {
             Texture2D texture = null;
             try
             {
                 texture = CreateTexture(width, height);
+                if (keyMask) KeepKeyMaskAlive(texture);
                 UploadPixels(texture, pixels);
                 return texture;
             }
             catch (Exception error)
             {
-                _uploadFailed = true;
                 if (texture != null) UnityEngine.Object.Destroy(texture);
-                Plugin.Logger.LogWarning($"TwilightInputOverlay: texture upload unavailable; using rectangular rendering: {error}");
+                if (keyMask)
+                    DeferKeyMasks(error);
+                else
+                {
+                    _uploadFailed = true;
+                    Plugin.Logger.LogWarning($"TwilightInputOverlay: texture upload unavailable; using rectangular rendering: {error}");
+                }
                 return null;
             }
         }
+
+        internal static void DeferKeyMasks(Exception error)
+        {
+            _keyMaskRetryAfter = Environment.TickCount64 + 5000;
+            if (_keyMaskFailureLogged) return;
+            _keyMaskFailureLogged = true;
+            Plugin.Logger.LogWarning($"TwilightInputOverlay: key mask unavailable; temporarily using rectangular keys: {error}");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void KeepKeyMaskAlive(Texture2D texture)
+            => texture.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Texture2D CreateTexture(int width, int height)

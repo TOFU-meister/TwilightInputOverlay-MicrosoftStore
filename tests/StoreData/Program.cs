@@ -88,6 +88,28 @@ finally
     Directory.Delete(temp, recursive: true);
 }
 
+var previousCulture = System.Globalization.CultureInfo.CurrentCulture;
+try
+{
+    System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+    Check(SettingPrecision.Display(-2.126f) == "-2,13", "display uses local decimal separator");
+    foreach (string input in new[] { "-2,126", "-2.126", " -2,126 " })
+        Check(SettingPrecision.TryParse(input, out float number) && number == -2.13f, "input normalizes " + input);
+    foreach (string invalid in new[] { "", "-", ".", "NaN", "Infinity", "1e90", "3,4,5" })
+        Check(!SettingPrecision.TryParse(invalid, out _), "reject invalid input " + invalid);
+    float legacySetting = 6.520123f;
+    Check(SettingPrecision.Serialize(ref legacySetting) == "6.52" && legacySetting == 6.52f,
+        "serialization normalizes the in-memory value and writes invariant decimal");
+    Check(SettingPrecision.Display(4f) == "4,00", "display shows two places");
+    Check(SettingPrecision.Round(0.1f) == 0.1f && SettingPrecision.Round(24f) == 24f,
+        "slider endpoints are representable");
+}
+finally
+{
+    System.Globalization.CultureInfo.CurrentCulture = previousCulture;
+}
+Console.WriteLine("Setting precision checks passed.");
+
 namespace TwilightInputOverlay
 {
     internal static class Plugin

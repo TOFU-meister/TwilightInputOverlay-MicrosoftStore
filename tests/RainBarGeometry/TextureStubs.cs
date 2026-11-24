@@ -4,7 +4,18 @@ namespace UnityEngine
 {
     public static class Mathf
     {
+        public static int Min(int a, int b) => Math.Min(a, b);
+        public static float Min(float a, float b) => Math.Min(a, b);
+        public static float Clamp(float value, float min, float max) => Math.Clamp(value, min, max);
+        public static float Clamp01(float value) => Math.Clamp(value, 0f, 1f);
         public static int RoundToInt(float value) => (int)MathF.Round(value);
+    }
+
+    public readonly record struct Color(float R, float G, float B, float A);
+    public readonly record struct Vector2(float X, float Y)
+    {
+        public static float Distance(Vector2 a, Vector2 b)
+            => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
     }
 
     public struct Color32
@@ -14,6 +25,7 @@ namespace UnityEngine
 
     public sealed class Texture2D
     {
+        public Color32[] Pixels { get; init; }
         public bool Destroyed { get; set; }
         // These Unity native properties failed on the Windows target.
         public int width => throw new NullReferenceException("Texture.get_width");
@@ -44,7 +56,14 @@ namespace TwilightInputOverlay
         public const int MaxDimension = 1024;
         public static bool FailUpload { get; set; }
         public static bool CanBake(int width, int height) => width > 0 && height > 0;
-        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels)
-            => FailUpload ? null : new UnityEngine.Texture2D();
+        public static bool CanBakeKeyMask { get; set; } = true;
+        public static UnityEngine.Color32 Pixel(UnityEngine.Color color) => new()
+        {
+            r = (byte)(color.R * 255f), g = (byte)(color.G * 255f),
+            b = (byte)(color.B * 255f), a = (byte)(color.A * 255f),
+        };
+
+        public static UnityEngine.Texture2D Upload(int width, int height, UnityEngine.Color32[] pixels, bool keyMask = false)
+            => FailUpload ? null : new UnityEngine.Texture2D { Pixels = keyMask ? pixels : null };
     }
 }

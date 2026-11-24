@@ -115,3 +115,51 @@ RainBarTextureCache.Release();
 Check(RainBarTextureCache.Count == 0, "release populated cache");
 Check(RainBarTextureCache.Get(32f, 64f, 0f) == null, "square bars bypass cache");
 Console.WriteLine("Rain cache checks passed (3,580 insert/reuse pairs, invalid textures, empty release and both eviction limits).");
+
+Check(RoundedRectTextureCache.GetMask(57, 56, 0) == null, "square keys bypass rounded masks");
+Check(RoundedRectTextureCache.GetMask(57, 56, 1).Pixels[0].a < 255, "small positive radius has corner coverage");
+var full = RoundedRectTextureCache.GetMask(57, 56, 10);
+var leftMask = RoundedRectTextureCache.GetMask(57, 56, 10, RoundedRectTextureCache.Mask.Left);
+var rightMask = RoundedRectTextureCache.GetMask(57, 56, 10, RoundedRectTextureCache.Mask.Right);
+Check(full.Pixels[0].a == 0 && leftMask.Pixels[0].a == 0 && rightMask.Pixels[28].a == 0,
+    "full and split masks round the outside corners");
+for (int y = 0; y < 56; y++)
+{
+    Check(leftMask.Pixels[y * 29 + 28].a == 255 && rightMask.Pixels[y * 29].a == 255,
+        "odd-width split has no gap at its centre");
+    for (int x = 0; x < 29; x++)
+        Check(leftMask.Pixels[y * 29 + x].a == rightMask.Pixels[y * 29 + 28 - x].a,
+            "left and right masks are mirrored");
+}
+
+UnityEngine.Object.Destroy(full);
+OverlayTexture.FailUpload = true;
+Check(RoundedRectTextureCache.GetMask(57, 56, 10) == null, "missing key texture and failed upload fall back");
+OverlayTexture.FailUpload = false;
+var recovered = RoundedRectTextureCache.GetMask(57, 56, 10);
+Check(recovered != null && !ReferenceEquals(full, recovered), "missing key texture rebuilt");
+int keyBakes = RoundedRectTextureCache.FillBakes;
+for (int i = 0; i < 2000; i++)
+{
+    Check(ReferenceEquals(leftMask, RoundedRectTextureCache.GetMask(57, 56, 10, RoundedRectTextureCache.Mask.Left)), "left half reuses geometry");
+    Check(ReferenceEquals(rightMask, RoundedRectTextureCache.GetMask(57, 56, 10, RoundedRectTextureCache.Mask.Right)), "right half reuses geometry");
+}
+Check(RoundedRectTextureCache.FillBakes == keyBakes, "same shapes incur no rebakes");
+
+for (int width = 60; width < 220; width++)
+{
+    Check(RoundedRectTextureCache.GetMask(width, 56, 10) != null, "new geometry draws under eviction");
+    Check(ReferenceEquals(leftMask, RoundedRectTextureCache.GetMask(57, 56, 10, RoundedRectTextureCache.Mask.Left)),
+        "recently used half survives eviction");
+}
+Check(recovered.Destroyed && RoundedRectTextureCache.FillCacheCount == 96, "entry limit evicts old geometry");
+Check(RoundedRectTextureCache.GetMask(57, 56, 10) != null, "evicted shape can be requested again");
+RoundedRectTextureCache.ReleaseKeyMasks();
+var largeKey = RoundedRectTextureCache.GetMask(1024, 1024, 12);
+RoundedRectTextureCache.GetMask(1024, 1024, 13);
+RoundedRectTextureCache.GetMask(1024, 1024, 14);
+Check(largeKey.Destroyed && RoundedRectTextureCache.FillCacheCount == 2, "pixel budget evicts excess masks");
+RoundedRectTextureCache.ReleaseKeyMasks();
+RoundedRectTextureCache.ReleaseKeyMasks();
+Check(RoundedRectTextureCache.FillCacheCount == 0 && leftMask.Destroyed, "teardown releases masks");
+Console.WriteLine("Key mask checks passed (split geometry, live reuse, invalid textures and both eviction limits).");

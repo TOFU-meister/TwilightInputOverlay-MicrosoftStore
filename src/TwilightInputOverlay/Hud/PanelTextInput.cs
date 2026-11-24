@@ -23,7 +23,11 @@ namespace TwilightInputOverlay
         }
 
         internal static string Draw(string key, string value, GUIStyle style, params GUILayoutOption[] options)
+            => Draw(key, value, style, out _, options);
+
+        internal static string Draw(string key, string value, GUIStyle style, out bool committed, params GUILayoutOption[] options)
         {
+            committed = false;
             value = value ?? "";
             // Use scalar IMGUI controls and keyboard events. GUILayout.TextField
             // enters Unity's stripped TextEditor.set_text on the Store player.
@@ -44,6 +48,7 @@ namespace TwilightInputOverlay
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
                     input.Use();
+                    committed = true;
                     string result = _draft;
                     Cancel();
                     return result;

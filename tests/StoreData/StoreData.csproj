@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/TwilightInputOverlay/Config/SettingPrecision.cs" Link="SettingPrecision.cs" />
     <Compile Include="../../src/TwilightInputOverlay/Config/StoreDataRoot.cs" Link="StoreDataRoot.cs" />
     <Compile Include="../../src/TwilightInputOverlay/PluginInfo.cs" Link="PluginInfo.cs" />
     <Compile Include="../../src/TwilightInputOverlay/Config/PersistenceService.cs" Link="PersistenceService.cs" />

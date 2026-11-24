@@ -106,6 +106,7 @@ namespace TwilightInputOverlay
 
         private void OnGUI()
         {
+            if (Event.current.type != EventType.Repaint) return;
             var cfg = ConfigService.Instance;
             if (cfg == null) return;
 
@@ -117,7 +118,7 @@ namespace TwilightInputOverlay
 
             float cell = Mathf.Max(8f, 56f * s.Scale);
             float spacing = Mathf.Max(0f, s.Spacing * s.Scale);
-            int radius = Mathf.Max(0, Mathf.RoundToInt(s.CornerRadius * s.Scale));
+            int radius = s.CornerRadius > 0f && OverlayTexture.CanBakeKeyMask ? Mathf.Max(1, Mathf.RoundToInt(s.CornerRadius * s.Scale)) : 0;
             int borderWidth = Mathf.Max(0, Mathf.RoundToInt(2f * s.Scale));
 
             // Bottom-left anchored: (OffsetX, OffsetY) from the bottom-left corner.
@@ -173,10 +174,11 @@ namespace TwilightInputOverlay
             float t = GetFade(FadeSlot(e, -1));
             var style = LerpStyle(s.Idle, s.Pressed, t);
 
-            var fill = radius > 0 ? RoundedRectTextureCache.GetFillMask(
+            var fill = radius > 0 ? RoundedRectTextureCache.GetMask(
                 Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius) : null;
-            DrawFill(rect, style.Fill, fill);
-            DrawKeyBorder(rect, fill != null ? radius : 0, borderWidth, style.Border);
+            bool rounded = TryDrawMask(rect, style.Fill, fill);
+            if (!rounded) DrawFill(rect, style.Fill);
+            DrawKeyBorder(rect, rounded ? radius : 0, borderWidth, style.Border);
 
             if (showText && !string.IsNullOrEmpty(e.Label))
                 DrawText(rect, e.Label, style.Text, cell, s.KeyTextOffsetX * s.Scale, s.KeyTextOffsetY * s.Scale);
@@ -197,17 +199,18 @@ namespace TwilightInputOverlay
 
             var leftRect = new Rect(rect.x, rect.y, rect.width * 0.5f, rect.height);
             var rightRect = new Rect(rect.x + leftRect.width, rect.y, leftRect.width, rect.height);
-            var fill = radius > 0 ? RoundedRectTextureCache.GetSplitFill(
-                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius,
-                leftStyle.Fill, rightStyle.Fill) : null;
-            if (fill != null)
-                DrawFill(rect, Color.white, fill);
-            else
-            {
-                DrawFill(leftRect, leftStyle.Fill);
-                DrawFill(rightRect, rightStyle.Fill);
-            }
-            DrawKeyBorder(rect, fill != null ? radius : 0, borderWidth, borderStyle.Border);
+            int width = Mathf.RoundToInt(rect.width);
+            int height = Mathf.RoundToInt(rect.height);
+            var left = radius > 0 ? RoundedRectTextureCache.GetMask(
+                width, height, radius, RoundedRectTextureCache.Mask.Left) : null;
+            var right = left != null ? RoundedRectTextureCache.GetMask(
+                width, height, radius, RoundedRectTextureCache.Mask.Right) : null;
+            bool bothMasks = left != null && right != null;
+            bool leftRounded = bothMasks && TryDrawMask(leftRect, leftStyle.Fill, left);
+            bool rightRounded = leftRounded && TryDrawMask(rightRect, rightStyle.Fill, right);
+            if (!leftRounded) DrawFill(leftRect, leftStyle.Fill);
+            if (!rightRounded) DrawFill(rightRect, rightStyle.Fill);
+            DrawKeyBorder(rect, leftRounded && rightRounded ? radius : 0, borderWidth, borderStyle.Border);
 
             if (showText)
             {
@@ -217,6 +220,22 @@ namespace TwilightInputOverlay
                     DrawText(leftRect, e.Label, leftStyle.Text, cell, ox, oy);
                 if (!string.IsNullOrEmpty(e.Label2))
                     DrawText(rightRect, e.Label2, rightStyle.Text, cell, ox, oy);
+            }
+        }
+
+        private static bool TryDrawMask(Rect rect, Color color, Texture2D mask)
+        {
+            if (mask == null || !OverlayTexture.CanBakeKeyMask) return false;
+            try
+            {
+                DrawFill(rect, color, mask);
+                return true;
+            }
+            catch (System.Exception error)
+            {
+                OverlayTexture.DeferKeyMasks(error);
+                RoundedRectTextureCache.ReleaseKeyMasks();
+                return false;
             }
         }
 
@@ -237,11 +256,9 @@ namespace TwilightInputOverlay
         private static void DrawKeyBorder(Rect rect, int radius, int width, Color color)
         {
             if (width <= 0) return;
-            var mask = radius > 0 ? RoundedRectTextureCache.GetBorderMask(
-                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius, width) : null;
-            if (mask != null)
-                DrawFill(rect, color, mask);
-            else
+            var mask = radius > 0 ? RoundedRectTextureCache.GetMask(
+                Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height), radius, RoundedRectTextureCache.Mask.Border, width) : null;
+            if (!TryDrawMask(rect, color, mask))
                 DrawBorder(rect, width, color);
         }
 

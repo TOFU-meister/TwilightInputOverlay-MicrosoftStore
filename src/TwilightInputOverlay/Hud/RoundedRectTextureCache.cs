@@ -3,181 +3,99 @@ using UnityEngine;
 
 namespace TwilightInputOverlay
 {
-    /// <summary>
-    /// Generates and caches textures used to draw key cells. Fill and border are
-    /// drawn as white "mask" textures that are tinted via GUI.color at draw time,
-    /// so animated/fading colors never force texture regeneration — only the
-    /// shape geometry (size/radius/border width) is baked. The border is drawn
-    /// after the fill so it is always on top. There is also a split-fill variant
-    /// used by the combined left/right hand key, which lets each half keep its
-    /// own fill color while sharing one outer shape (two colors cannot be tinted
-    /// in a single draw, so that one remains color-baked).
-    /// </summary>
+    // Cache geometry only. The HUD tints each mask, including the two halves
+    // of a mouse key, independently of press and fade state.
     internal static class RoundedRectTextureCache
     {
-        private struct FillMaskKey
+        private const int Capacity = 96;
+        private const int MaxCachedPixels = 2 * 1024 * 1024;
+
+        internal enum Mask { Full, Left, Right, Border }
+
+        private readonly record struct Key(int Width, int Height, int Radius, Mask Part, int BorderWidth);
+        private readonly record struct Entry(Key Key, Texture2D Texture, int Pixels);
+
+        private static readonly Dictionary<Key, LinkedListNode<Entry>> Cache = new();
+        private static readonly LinkedList<Entry> Order = new();
+        private static int _pixels;
+
+        public static int FillCalls { get; private set; }
+        public static int FillBakes { get; private set; }
+        internal static int FillCacheCount => Cache.Count;
+
+        internal static Texture2D GetMask(int width, int height, int radius, Mask part = Mask.Full, int borderWidth = 0)
         {
-            public int Width;
-            public int Height;
-            public int Radius;
-        }
+            if (width < 1 || height < 1 || width > OverlayTexture.MaxDimension || height > OverlayTexture.MaxDimension)
+                return null;
 
-        private struct SplitFillKey
-        {
-            public int Width;
-            public int Height;
-            public int Radius;
-            public uint LeftFill;
-            public uint RightFill;
-        }
+            radius = Mathf.Min(radius, Mathf.Min(width, height) / 2);
+            if (radius <= 0) return null;
 
-        private struct BorderMaskKey
-        {
-            public int Width;
-            public int Height;
-            public int Radius;
-            public int BorderWidth;
-        }
-
-        private static readonly Dictionary<FillMaskKey, Texture2D> FillMaskCache = new Dictionary<FillMaskKey, Texture2D>();
-        private static readonly Dictionary<SplitFillKey, Texture2D> SplitFillCache = new Dictionary<SplitFillKey, Texture2D>();
-        private static readonly Dictionary<BorderMaskKey, Texture2D> BorderMaskCache = new Dictionary<BorderMaskKey, Texture2D>();
-        public static int FillCalls;
-        public static int FillBakes;
-        public static int FillCacheCount => FillMaskCache.Count;
-        /// <summary>White fill mask; tint with GUI.color to apply the actual fill color.</summary>
-        public static Texture2D GetFillMask(int width, int height, int radius)
-        {
-            FillCalls++;
-            width = Mathf.Max(1, width);
-            height = Mathf.Max(1, height);
-            if (!OverlayTexture.CanBake(width, height)) return null;
-            radius = ClampRadius(width, height, radius);
-
-            var key = new FillMaskKey { Width = width, Height = height, Radius = radius };
-            Texture2D tex;
-            if (FillMaskCache.TryGetValue(key, out tex))
-                return tex;
-
-            if (FillMaskCache.Count > 32)
-                Release(FillMaskCache);
-            tex = BuildFillMask(width, height, radius);
-            FillBakes++;
-            if (tex != null) FillMaskCache[key] = tex;
-            return tex;
-        }
-
-        public static Texture2D GetSplitFill(int width, int height, int radius, Color leftFill, Color rightFill)
-        {
-            width = Mathf.Max(1, width);
-            height = Mathf.Max(1, height);
-            if (!OverlayTexture.CanBake(width, height)) return null;
-            radius = ClampRadius(width, height, radius);
-
-            var key = new SplitFillKey
+            bool border = part == Mask.Border;
+            if (!border) FillCalls++;
+            var key = new Key(width, height, radius, part, borderWidth);
+            if (Cache.TryGetValue(key, out var node))
             {
-                Width = width,
-                Height = height,
-                Radius = radius,
-                LeftFill = Pack(leftFill),
-                RightFill = Pack(rightFill),
-            };
-            Texture2D tex;
-            if (SplitFillCache.TryGetValue(key, out tex))
-                return tex;
+                if (node.Value.Texture != null)
+                {
+                    Order.Remove(node);
+                    Order.AddLast(node);
+                    return node.Value.Texture;
+                }
+                Remove(node);
+            }
 
-            if (SplitFillCache.Count > 64)
-                Release(SplitFillCache);
-            tex = BuildSplitFill(width, height, radius, leftFill, rightFill);
-            if (tex != null) SplitFillCache[key] = tex;
-            return tex;
-        }
+            int pixelWidth = part == Mask.Left || part == Mask.Right ? (width + 1) / 2 : width;
+            if (!OverlayTexture.CanBakeKeyMask) return null;
+            var texture = border
+                ? BuildBorderMask(width, height, radius, borderWidth)
+                : BuildFillMask(width, height, radius, part, pixelWidth);
+            if (texture == null) return null;
+            if (!border) FillBakes++;
 
-        /// <summary>White border mask; tint with GUI.color to apply the actual border color.</summary>
-        public static Texture2D GetBorderMask(int width, int height, int radius, int borderWidth)
-        {
-            width = Mathf.Max(1, width);
-            height = Mathf.Max(1, height);
-            if (!OverlayTexture.CanBake(width, height)) return null;
-            radius = ClampRadius(width, height, radius);
-            borderWidth = Mathf.Max(0, borderWidth);
+            int pixels = pixelWidth * height;
+            while (Order.First is { } oldest && (Cache.Count >= Capacity || _pixels + pixels > MaxCachedPixels))
+                Remove(oldest);
 
-            var key = new BorderMaskKey
-            {
-                Width = width,
-                Height = height,
-                Radius = radius,
-                BorderWidth = borderWidth,
-            };
-            Texture2D tex;
-            if (BorderMaskCache.TryGetValue(key, out tex))
-                return tex;
-
-            if (BorderMaskCache.Count > 32)
-                Release(BorderMaskCache);
-            tex = BuildBorderMask(width, height, radius, borderWidth);
-            if (tex != null) BorderMaskCache[key] = tex;
-            return tex;
+            Cache.Add(key, Order.AddLast(new Entry(key, texture, pixels)));
+            _pixels += pixels;
+            return texture;
         }
 
         internal static void ReleaseKeyMasks()
         {
-            Release(FillMaskCache);
-            Release(SplitFillCache);
-            Release(BorderMaskCache);
+            while (Order.First is { } oldest)
+                Remove(oldest);
         }
 
-        private static void Release<TKey>(Dictionary<TKey, Texture2D> cache)
+        private static void Remove(LinkedListNode<Entry> node)
         {
-            foreach (var texture in cache.Values)
-                Object.Destroy(texture);
-            cache.Clear();
+            var entry = node.Value;
+            Cache.Remove(entry.Key);
+            Order.Remove(node);
+            _pixels -= entry.Pixels;
+            if (entry.Texture != null)
+                UnityEngine.Object.Destroy(entry.Texture);
         }
 
-        private static int ClampRadius(int width, int height, int radius)
+        private static Texture2D BuildFillMask(int width, int height, int radius, Mask part, int pixelWidth)
         {
-            return Mathf.Max(0, Mathf.Min(radius, Mathf.Min(width, height) / 2));
-        }
-
-        private static Texture2D BuildFillMask(int width, int height, int radius)
-        {
-            var pixels = new Color32[width * height];
+            // Sample both halves in the full key's coordinate space so they
+            // meet exactly at the centre, including for odd pixel widths.
+            float span = part == Mask.Full ? width : width * 0.5f;
+            float origin = part == Mask.Right ? span : 0f;
+            float step = span / pixelWidth;
+            var pixels = new Color32[pixelWidth * height];
             for (int y = 0; y < height; y++)
             {
-                for (int x = 0; x < width; x++)
+                for (int x = 0; x < pixelWidth; x++)
                 {
-                    float coverage;
-                    bool inside = ShapeCoverage(x + 0.5f, y + 0.5f, width, height, radius, out coverage);
-                    Color c = new Color(1f, 1f, 1f, inside ? coverage : 0f);
-                    pixels[y * width + x] = OverlayTexture.Pixel(c);
+                    ShapeCoverage(origin + (x + 0.5f) * step, y + 0.5f, width, height, radius, out float coverage);
+                    pixels[y * pixelWidth + x] = OverlayTexture.Pixel(new Color(1f, 1f, 1f, coverage));
                 }
             }
 
-            return OverlayTexture.Upload(width, height, pixels);
-        }
-
-        private static Texture2D BuildSplitFill(int width, int height, int radius, Color leftFill, Color rightFill)
-        {
-            float mid = width * 0.5f;
-            var pixels = new Color32[width * height];
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    float px = x + 0.5f;
-                    float coverage;
-                    bool inside = ShapeCoverage(px, y + 0.5f, width, height, radius, out coverage);
-                    Color c = new Color(0f, 0f, 0f, 0f);
-                    if (inside)
-                    {
-                        c = px < mid ? leftFill : rightFill;
-                        c.a *= coverage;
-                    }
-                    pixels[y * width + x] = OverlayTexture.Pixel(c);
-                }
-            }
-
-            return OverlayTexture.Upload(width, height, pixels);
+            return OverlayTexture.Upload(pixelWidth, height, pixels, keyMask: true);
         }
 
         private static Texture2D BuildBorderMask(int width, int height, int radius, int borderWidth)
@@ -207,7 +125,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            return OverlayTexture.Upload(width, height, pixels);
+            return OverlayTexture.Upload(width, height, pixels, keyMask: true);
         }
 
         private static bool ShapeCoverage(float px, float py, int width, int height, int radius, out float coverage)
@@ -247,13 +165,5 @@ namespace TwilightInputOverlay
             return r - dist;
         }
 
-        private static uint Pack(Color c)
-        {
-            uint r = (uint)(Mathf.Clamp01(c.r) * 255f + 0.5f);
-            uint g = (uint)(Mathf.Clamp01(c.g) * 255f + 0.5f);
-            uint b = (uint)(Mathf.Clamp01(c.b) * 255f + 0.5f);
-            uint a = (uint)(Mathf.Clamp01(c.a) * 255f + 0.5f);
-            return (r << 24) | (g << 16) | (b << 8) | a;
-        }
     }
 }

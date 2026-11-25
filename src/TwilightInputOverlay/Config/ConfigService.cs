@@ -11,6 +11,7 @@ namespace TwilightInputOverlay
     public sealed class ConfigService
     {
         public static ConfigService Instance { get; private set; }
+        internal static bool DebugModeEnabled { get; private set; }
 
         public static void Init(ConfigService instance)
         {
@@ -34,6 +35,7 @@ namespace TwilightInputOverlay
         {
             PersistenceService.EnsureDirs();
             Settings.Load();
+            DebugModeEnabled = Settings.EnableDebugMode;
             Localization.Reload();
             Localization.SetLanguage(Settings.CurrentLang);
         }

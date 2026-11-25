@@ -153,7 +153,7 @@ namespace TwilightInputOverlay
             else
                 _drawMode = "hidden";
 
-            if (s.DebugInfo && System.Environment.TickCount64 >= _nextDiagnostics)
+            if (ConfigService.DebugModeEnabled && s.DebugInfo && System.Environment.TickCount64 >= _nextDiagnostics)
             {
                 _nextDiagnostics = System.Environment.TickCount64 + 5000;
                 Plugin.Logger.LogInfo($"[MouseOverlay] mode={_drawMode}, masks={CursorShapeTextureCache.Count}, "

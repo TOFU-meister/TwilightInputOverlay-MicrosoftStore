@@ -57,7 +57,7 @@ namespace TwilightInputOverlay
                     Order.AddLast(node);
                     return node.Value.Shape;
                 }
-                Invalidated++;
+                if (ConfigService.DebugModeEnabled) Invalidated++;
                 Remove(node);
             }
 
@@ -65,17 +65,17 @@ namespace TwilightInputOverlay
             int height = radius * 2 + Pad * 2;
             var tex = Build(radius, rear, width, height, recovery);
             if (tex == null) return default;
-            if (replacing) Rebuilt++;
+            if (ConfigService.DebugModeEnabled && replacing) Rebuilt++;
 
             while (Order.First is { } oldest && (Count >= MaxEntries || Pixels + width * height > MaxPixels))
             {
                 Remove(oldest);
-                Evictions++;
+                if (ConfigService.DebugModeEnabled) Evictions++;
             }
             var shape = new Shape(tex, width, height, Pad + rear, Pad + radius);
             Cache.Add(key, Order.AddLast(new Entry(key, shape)));
             Pixels += width * height;
-            Bakes++;
+            if (ConfigService.DebugModeEnabled) Bakes++;
             return shape;
         }
 
@@ -83,7 +83,7 @@ namespace TwilightInputOverlay
         {
             if (Cache.TryGetValue(new ShapeKey(radius, rear), out var node))
             {
-                Invalidated++;
+                if (ConfigService.DebugModeEnabled) Invalidated++;
                 Remove(node);
             }
         }
@@ -104,7 +104,7 @@ namespace TwilightInputOverlay
             Pixels -= entry.Shape.Width * entry.Shape.Height;
             if (entry.Shape.Texture != null)
             {
-                Destroyed++;
+                if (ConfigService.DebugModeEnabled) Destroyed++;
                 Object.Destroy(entry.Shape.Texture);
             }
         }

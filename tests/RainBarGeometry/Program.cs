@@ -1,6 +1,8 @@
 using System;
 using TwilightInputOverlay;
 
+ConfigService.DebugModeEnabled = true;
+
 static void Check(bool condition, string message)
 {
     if (!condition)
@@ -251,3 +253,20 @@ Check(RoundedRectTextureCache.Created > 0 && RoundedRectTextureCache.Destroyed >
 Check(RainBarTextureCache.Bakes > 0 && RainBarTextureCache.Destroyed > 0
     && RainBarTextureCache.InvalidHits > 0 && RainBarTextureCache.Pixels == 0, "rain counters and released pixels");
 Check(CursorShapeTextureCache.Bakes > 0 && CursorShapeTextureCache.Destroyed > 0, "mouse counters");
+
+ConfigService.DebugModeEnabled = false;
+var counters = (RoundedRectTextureCache.Created, RoundedRectTextureCache.Destroyed,
+    RainBarTextureCache.Bakes, RainBarTextureCache.Destroyed, RainBarTextureCache.Hits,
+    CursorShapeTextureCache.Bakes, CursorShapeTextureCache.Destroyed);
+var quietKey = RoundedRectTextureCache.GetMask(20, 20, 3);
+var quietRain = RainBarTextureCache.Get(20, 20, 3);
+var quietCursor = CursorShapeTextureCache.Get(20, 3, circleRecovery);
+Check(quietKey != null && quietRain != null && quietCursor.Texture != null, "all caches create textures with debug off");
+Check(RainBarTextureCache.Get(20, 20, 3) == quietRain, "rain texture reused with debug off");
+RoundedRectTextureCache.ReleaseKeyMasks();
+RainBarTextureCache.Release();
+CursorShapeTextureCache.Release();
+Check(quietKey.Destroyed && quietRain.Destroyed && quietCursor.Texture.Destroyed, "all caches release textures with debug off");
+Check(counters == (RoundedRectTextureCache.Created, RoundedRectTextureCache.Destroyed,
+    RainBarTextureCache.Bakes, RainBarTextureCache.Destroyed, RainBarTextureCache.Hits,
+    CursorShapeTextureCache.Bakes, CursorShapeTextureCache.Destroyed), "diagnostic counters stay unchanged with debug off");

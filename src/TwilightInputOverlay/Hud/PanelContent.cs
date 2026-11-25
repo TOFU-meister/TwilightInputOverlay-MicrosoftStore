@@ -136,9 +136,12 @@ namespace TwilightInputOverlay
             }
 
             // Diagnostics toggle (plugin-specific, available in both modes).
-            Section(loc.Get("PANEL_DEBUG"));
-            s.DebugInfo = Toggle(loc.Get("SETTINGS_DEBUG_INFO"), s.DebugInfo);
-            OverlayPerformance.Draw();
+            if (ConfigService.DebugModeEnabled)
+            {
+                Section(loc.Get("PANEL_DEBUG"));
+                s.DebugInfo = Toggle(loc.Get("SETTINGS_DEBUG_INFO"), s.DebugInfo);
+                OverlayPerformance.Draw();
+            }
 
             Section(loc.Get("SETTINGS_PRESET"));
             DrawPresetSelector(cfg, loc);

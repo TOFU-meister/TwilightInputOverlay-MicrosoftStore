@@ -177,6 +177,7 @@ namespace TwilightInputOverlay
         // to the BepInEx log. A global preference like the panel key and
         // language, so it is excluded from preset snapshots.
         public bool DebugInfo = false;
+        internal bool EnableDebugMode { get; private set; }
 
         public string CurrentLang = "en";
 
@@ -196,11 +197,14 @@ namespace TwilightInputOverlay
         private const string PressedSection = "pressed";
         private const string PresetsSection = "Presets";
 
-        public void Load()
+        public void Load() => Load(preserveDebugMode: false);
+
+        internal void Load(bool preserveDebugMode)
         {
             // Idempotent: Rows are rebuilt from the file below, so a preset
             // load can call Load() again without stale rows/keys surviving.
             Rows.Clear();
+            if (!preserveDebugMode) EnableDebugMode = false;
 
             int rowCount = -1;      // -1 = not specified by the file
             bool sawRowSection = false;
@@ -224,6 +228,8 @@ namespace TwilightInputOverlay
                     ApplyStyle(Idle, p.Key, p.Value, IdleSection);
                 else if (p.Section == PressedSection)
                     ApplyStyle(Pressed, p.Key, p.Value, PressedSection);
+                else if (!preserveDebugMode && p.Section == "Debug" && p.Key == "EnableDebugMode")
+                    EnableDebugMode = bool.TryParse(p.Value, out bool enabled) && enabled;
                 else if (p.Section == PresetsSection)
                     ApplyPresets(p.Key, p.Value);
                 else if (IsRowSection(p.Section))
@@ -537,6 +543,10 @@ namespace TwilightInputOverlay
                     ["Current"] = string.IsNullOrEmpty(CurrentPreset) ? PresetStore.DefaultPresetName : CurrentPreset,
                 };
                 sections.Add(new KeyValuePair<string, IDictionary<string, string>>(PresetsSection, presets));
+                sections.Add(new KeyValuePair<string, IDictionary<string, string>>("Debug", new Dictionary<string, string>
+                {
+                    ["EnableDebugMode"] = EnableDebugMode ? "true" : "false",
+                }));
             }
 
             PersistenceService.Write(

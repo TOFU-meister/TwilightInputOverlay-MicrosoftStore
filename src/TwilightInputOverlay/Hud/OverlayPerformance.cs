@@ -47,6 +47,7 @@ namespace TwilightInputOverlay
 
         internal static void Draw()
         {
+            if (!ConfigService.DebugModeEnabled) return;
             if (GUILayout.Button(Enabled ? "Stop overlay performance capture" : "Start overlay performance capture", PanelStyles.Button))
             {
                 if (Enabled)

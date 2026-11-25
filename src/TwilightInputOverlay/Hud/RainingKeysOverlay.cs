@@ -99,18 +99,19 @@ namespace TwilightInputOverlay
             if (cfg == null) return;
             var s = cfg.Settings;
 
-            if (!s.DebugInfo)
+            bool debugInfo = ConfigService.DebugModeEnabled && s.DebugInfo;
+            if (!debugInfo && _wasDebug)
             {
                 _debugTimer = 0f;
                 _debugMaxBars = 0;
                 _debugMaxBarHeight = 0f;
-                _debugBakeStart = RoundedRectTextureCache.FillBakes;
-                _debugRainBakeStart = RainBarTextureCache.Bakes;
                 _wasDebug = false;
             }
-            else if (!_wasDebug)
+            else if (debugInfo && !_wasDebug)
             {
                 _wasDebug = true;
+                _debugBakeStart = RoundedRectTextureCache.FillBakes;
+                _debugRainBakeStart = RainBarTextureCache.Bakes;
                 _debugLastMem = System.GC.GetTotalMemory(false);
                 Plugin.Logger.LogInfo(string.Format(
                     "[RainingKeys] debug logging enabled: enabled={0} height={1} gap={2} speed={3} width={4} radius={5} scale={6}",
@@ -156,7 +157,7 @@ namespace TwilightInputOverlay
             _rains = next;
             _nextRains.Clear();
 
-            if (s.DebugInfo)
+            if (debugInfo)
                 LogDebugStats(s, regionHeightPx, gapPx, dt);
         }
 
@@ -372,7 +373,7 @@ namespace TwilightInputOverlay
                         checkedUnityLive = true;
                         stage = "draw";
                         GUI.DrawTexture(rect, mask);
-                        TextureDraws++;
+                        if (ConfigService.DebugModeEnabled) TextureDraws++;
                         return;
                     }
                 }
@@ -393,7 +394,7 @@ namespace TwilightInputOverlay
                 }
             }
 
-            if (radius > 0f) RoundedFallbacks++;
+            if (radius > 0f && ConfigService.DebugModeEnabled) RoundedFallbacks++;
 
             try
             {
@@ -401,7 +402,7 @@ namespace TwilightInputOverlay
                 if (white != null)
                 {
                     GUI.DrawTexture(rect, white);
-                    TextureDraws++;
+                    if (ConfigService.DebugModeEnabled) TextureDraws++;
                 }
             }
             catch (Exception error)

@@ -65,17 +65,17 @@ namespace TwilightInputOverlay
             {
                 if (existing.Value.Texture != null)
                 {
-                    Hits++;
+                    if (ConfigService.DebugModeEnabled) Hits++;
                     Order.Remove(existing);
                     Order.AddLast(existing);
                     return existing.Value.Texture;
                 }
 
-                InvalidHits++;
+                if (ConfigService.DebugModeEnabled) InvalidHits++;
                 Remove(existing);
             }
 
-            Misses++;
+            if (ConfigService.DebugModeEnabled) Misses++;
             stage = "mask pixel generation";
             float sampleWidth = (float)shapeWidth / pixelWidth;
             float sampleHeight = (float)shapeHeight / pixelHeight;
@@ -98,8 +98,8 @@ namespace TwilightInputOverlay
             stage = "Texture2D creation / protection / upload";
             var texture = OverlayTexture.Upload(pixelWidth, pixelHeight, pixels, OverlayTexture.Rain, propagateFailure: true);
             if (texture == null) return null;
-            if (replacing) Rebuilt++;
-            Bakes++;
+            if (ConfigService.DebugModeEnabled && replacing) Rebuilt++;
+            if (ConfigService.DebugModeEnabled) Bakes++;
 
             stage = "cache eviction / insertion";
             while (Order.First is { } oldest
@@ -124,7 +124,7 @@ namespace TwilightInputOverlay
             _cachedPixels -= entry.PixelCount;
             if (entry.Texture != null)
             {
-                Destroyed++;
+                if (ConfigService.DebugModeEnabled) Destroyed++;
                 UnityEngine.Object.Destroy(entry.Texture);
             }
         }

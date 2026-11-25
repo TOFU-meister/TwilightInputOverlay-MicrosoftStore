@@ -38,7 +38,7 @@ namespace TwilightInputOverlay
             if (radius <= 0) return null;
 
             bool border = part == Mask.Border;
-            if (!border) FillCalls++;
+            if (ConfigService.DebugModeEnabled && !border) FillCalls++;
             var key = new Key(width, height, radius, part, borderWidth);
             bool replacing = Cache.TryGetValue(key, out var node);
             if (replacing)
@@ -49,7 +49,7 @@ namespace TwilightInputOverlay
                     Order.AddLast(node);
                     return node.Value.Texture;
                 }
-                InvalidHits++;
+                if (ConfigService.DebugModeEnabled) InvalidHits++;
                 Remove(node);
             }
 
@@ -59,9 +59,9 @@ namespace TwilightInputOverlay
                 ? BuildBorderMask(width, height, radius, borderWidth)
                 : BuildFillMask(width, height, radius, part, pixelWidth);
             if (texture == null) return null;
-            if (replacing) Rebuilt++;
-            Created++;
-            if (!border) FillBakes++;
+            if (ConfigService.DebugModeEnabled && replacing) Rebuilt++;
+            if (ConfigService.DebugModeEnabled) Created++;
+            if (ConfigService.DebugModeEnabled && !border) FillBakes++;
 
             int pixels = pixelWidth * height;
             while (Order.First is { } oldest && (Cache.Count >= Capacity || _pixels + pixels > MaxCachedPixels))
@@ -86,7 +86,7 @@ namespace TwilightInputOverlay
             _pixels -= entry.Pixels;
             if (entry.Texture != null)
             {
-                Destroyed++;
+                if (ConfigService.DebugModeEnabled) Destroyed++;
                 UnityEngine.Object.Destroy(entry.Texture);
             }
         }

@@ -201,7 +201,7 @@ namespace TwilightInputOverlay
             // Refresh the in-memory model from the restored file. The snapshot
             // has no [Presets] section, so CurrentPreset stays on the preset
             // that was just loaded; language/panel key keep their current values.
-            cfg.Settings.Load();
+            cfg.Settings.Load(preserveDebugMode: true);
             cfg.SaveSettings();
             return true;
         }

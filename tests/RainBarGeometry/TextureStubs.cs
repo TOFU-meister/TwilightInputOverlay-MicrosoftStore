@@ -76,3 +76,11 @@ namespace TwilightInputOverlay
             => FailUpload ? null : new UnityEngine.Texture2D { Pixels = pixels };
     }
 }
+
+namespace TwilightInputOverlay
+{
+    internal static class ConfigService
+    {
+        internal static bool DebugModeEnabled { get; set; }
+    }
+}

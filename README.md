@@ -6,6 +6,8 @@ Human: Fall Flat の Microsoft Store / Xbox PC 版向けの入力表示プラグ
 
 dev の **0.1.2-pre** では、通常キー表示の角丸マスクを押下色と分けて管理し、キー・マウス・Raining Keys の小数設定を確定・保存時に小数点以下2桁にそろえます。従来の設定・プリセットも読み込めます。色コードと RGBA スライダー、整数設定の扱いは従来どおりです。
 
+開発版 0.1.2-pre の [Windows最終検証記録](docs/releases/VERIFY-v0.1.2-pre.md) を参照できます。
+
 ## 対応環境
 
 - Windows 64 ビットの Human: Fall Flat Microsoft Store／Xbox PC 版（Unity 2019.4.24f1 IL2CPP）

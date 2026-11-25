@@ -93,7 +93,7 @@ C:\XboxGames\Human Fall Flat\Content\
 - 「Key Overlay」の角丸は `0` で矩形になります。「Mouse Overlay」では仮想カーソルと背景を個別に切り替えられます。軌跡を消すには伸びを `1` に設定します。
 - 「Raining Keys」を有効にすると、最上段のキーからバーが上昇します。二分割キーは左右独立です。ルート画面の「Debug」で、効果の動作中にバー数、キャッシュ、メモリの統計をログに出せます。
 - INI のキーとプリセット形式は第1段階から共通です。テクスチャの生成や転送に失敗した場合はログに記録し、キーとバーは矩形、仮想カーソルは四角の表示で継続します。
-- HSRTimer Microsoft Store `0.1.2-pre` と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
+- 対応する HSRTimer Microsoft Store（公開版 Overlay と HSRTimer `0.1.2-pre`、開発版同士は HSRTimer `0.1.3-pre` で検証）と組み合わせると、HSRTimer の設定に「Input Overlay」タブが追加されます。登録が成功した場合は HSRTimer の設定キーを使用します。HSRTimer が未導入、`0.1.0-pre`、または登録が失敗した環境では、Overlay の独立画面を使用します。統合時も設定とプリセットは Overlay の保存先に書き込みます。
 
 ## トラブルシューティング
 
@@ -120,7 +120,7 @@ Windows x64 で実際にゲームを起動して生成した `BepInEx/interop` �
 .\scripts\New-StoreReleaseDll.ps1 -BepInExDir 'C:\Path\To\HumanFallFlat\BepInEx' -OutputDirectory .\release
 ```
 
-この開発版では `TwilightInputOverlay-v0.1.2-pre.dll` が生成されます。公開時は実機確認済みの DLL を Release に添付し、著作権表示を含む [LICENSE](LICENSE) の全文を Release 本文に掲載するか、別の `LICENSE` アセットとして添付します。DLL にも同じライセンス全文が埋め込まれています。
+この開発版では `TwilightInputOverlay-v0.1.2-pre.dll` が生成され、SHA256 が表示されます。出力先に同名ファイルがある場合は別のフォルダーを指定してください。配布用の出力には DLL だけがコピーされます。スタブや開発用の参照ファイルは配布に使いません。公開時は実機確認済みの DLL を Release に添付し、著作権表示を含む [LICENSE](LICENSE) の全文を Release 本文に掲載するか、別の `LICENSE` アセットとして添付します。DLL にも同じライセンス全文が埋め込まれています。
 
 ### Windows PowerShell でのビルド
 
@@ -153,7 +153,7 @@ Copy-Item -Path (Join-Path $BuildDir 'TwilightInputOverlay.dll'), (Join-Path $Bu
 5. 「Key Overlay」の角丸を `0` と正の値で切り替え、枠線と左右マウスの分割位置を確認すること。角丸ありの状態で複数キーの同時押し、押下・解放の反復、ステージ移動を行い、途中で角が四角に戻らないこと。
 6. 「Mouse Overlay」でカーソルと背景を個別に切り替え、ゲームプレイ中とメニューで移動を確認すること。速い移動、停止、反転で軌跡が伸縮し、伸びを `1` にすると軌跡が消えること。Clamp、Wrap、中央に戻る設定も確認すること。
 7. 「Raining Keys」で最上段のキーを長押しし、離してから再入力すること。バーが指定範囲で伸び、解放後に上端から消え、左右マウスで独立して発生すること。角丸、色、間隔、速度、幅を変更し、プリセットの保存と復元を確認すること。
-8. 「Debug」の有効時に動作中の `[RainingKeys]` 統計が出て、無効時は止まること。Overlay 4クラスの登録が成功し、Overlay 名義の `unsupported parameter` が出ないことを確認すること。
+8. [開発者向け診断](docs/debug-mode.md)を有効にした場合、詳細ログ操作をONにすると動作中の `[RainingKeys]` 統計が出て、無効時は止まること。Overlay 4クラスの登録が成功し、Overlay 名義の `unsupported parameter` が出ないことを確認すること。
 
 9. 数値欄に `6.527` を入力し、Enter 後に `6.53` へ丸められ、スライダーにも反映されること。スライダーを動かした場合も表示が更新され、Escape で入力が取り消されること。小数点がカンマの環境では `6,527` でも確認すること。設定画面を閉じ、ゲームを再起動して値を確認すること。
 
